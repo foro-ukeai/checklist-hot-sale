@@ -1892,12 +1892,20 @@ function parseOCRHourTable(text){
     if(!factM) continue;
     const fact = parseInt(factM[1].replace(/[.,]/g,''), 10);
     if(!fact || fact <= 0) continue;
-    // Numbers between the hour token and the first $ → [sessions, transactions]
-    const afterHour  = norm.slice(hourM[0].length);
+    // Numbers between the hour token and the first $ → [sessions, transactions, ...]
+    const afterHour    = norm.slice(hourM[0].length);
     const beforeDollar = afterHour.slice(0, afterHour.indexOf('$'));
-    const beforeNums = [...beforeDollar.matchAll(/\b(\d+)\b/g)]
-      .map(m => parseInt(m[1], 10)).filter(n => !isNaN(n));
-    const tr = beforeNums.length >= 2 ? beforeNums[1] : (beforeNums[0] || null);
+    const beforeNums   = [...beforeDollar.matchAll(/\b(\d+)\b/g)]
+      .map(m => parseInt(m[1], 10)).filter(n => !isNaN(n) && n > 0);
+    // sessions = first (largest-ish), transactions = second AND must be < sessions
+    // (CVR is always < 100% so tr < sessions)
+    const sessions = beforeNums[0] || 0;
+    let tr = null;
+    if(beforeNums.length >= 2){
+      // Find first number after sessions that is less than sessions
+      const candidates = beforeNums.slice(1).filter(n => n < sessions);
+      tr = candidates.length ? candidates[0] : beforeNums[1];
+    }
     rows[hour] = { tr, fact };
   }
   if(!Object.keys(rows).length) return null; // not this format
