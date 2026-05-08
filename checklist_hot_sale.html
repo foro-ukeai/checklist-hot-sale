@@ -2180,11 +2180,13 @@ function downloadHTML(src){
 const GH_RAW = 'https://raw.githubusercontent.com/foro-ukeai/checklist-hot-sale/main/data.json';
 const HS_SYNC_KEYS = ['hs_data','hs_dist','hs_state','hs_notes','hs_tags','hs_tag_colors','hs_sections','hs_sec_titles','hs_marcas'];
 
-// Patch localStorage.setItem to trigger debounced cloud save on any hs_* write
+// Guard: only auto-save AFTER app has finished initialising
+let _ghReady = false;
+
 const _lsOrig = Storage.prototype.setItem;
 Storage.prototype.setItem = function(key, value) {
   _lsOrig.call(this, key, value);
-  if(this === localStorage && key.startsWith('hs_') && key !== 'hs_sync_ts') {
+  if(_ghReady && this === localStorage && key.startsWith('hs_') && key !== 'hs_sync_ts') {
     _ghDebouncedSave();
   }
 };
@@ -2195,14 +2197,24 @@ function _ghDebouncedSave() {
   _ghSaveTimer = setTimeout(_ghPush, 1800);
 }
 
+function _ghShowStatus(msg, color){
+  let el = document.getElementById('_ghStatus');
+  if(!el){ el=document.createElement('div'); el.id='_ghStatus';
+    Object.assign(el.style,{position:'fixed',bottom:'12px',right:'14px',fontSize:'11px',padding:'4px 10px',borderRadius:'6px',zIndex:'9998',transition:'opacity .5s',pointerEvents:'none'});
+    document.body.appendChild(el); }
+  el.textContent = msg; el.style.background = color; el.style.color='#fff'; el.style.opacity='1';
+  clearTimeout(el._t); el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2500);
+}
+
 async function _ghPush() {
   try {
     const payload = { _ts: Date.now() };
     HS_SYNC_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) payload[k] = v; });
     _lsOrig.call(localStorage, 'hs_sync_ts', String(payload._ts));
     const r = await fetch('/api/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ data: payload }) });
-    if(!r.ok) console.warn('[sync] save failed', r.status);
-  } catch(e) { /* silent */ }
+    if(r.ok){ _ghShowStatus('☁ Guardado', '#3c7a44'); }
+    else { console.warn('[sync] save failed', r.status); _ghShowStatus('⚠ Error al guardar', '#c93838'); }
+  } catch(e) { _ghShowStatus('⚠ Sin conexión', '#888'); }
 }
 
 // On load: pull remote and apply if newer (then reload once)
@@ -2212,7 +2224,8 @@ async function _ghPush() {
     if(!res.ok) return;
     const remote = await res.json();
     const remoteTs = remote._ts || 0;
-    const localTs  = parseInt(localStorage.getItem('hs_sync_ts') || '0', 10);
+    if(remoteTs === 0) return; // remote is empty — nothing to apply
+    const localTs = parseInt(localStorage.getItem('hs_sync_ts') || '0', 10);
     if(remoteTs <= localTs) return; // already up to date
     let applied = false;
     HS_SYNC_KEYS.forEach(k => { if(remote[k] != null){ _lsOrig.call(localStorage, k, remote[k]); applied = true; } });
@@ -2223,6 +2236,9 @@ async function _ghPush() {
 
 function render(){ applyDynStyles(); initAutoFill(); renderDayTabs(); renderSummary(); renderSections(); }
 render();
+// Enable auto-save AFTER init, then push current data so all browsers sync
+_ghReady = true;
+_ghPush();
 </script>
 </body>
 </html>
