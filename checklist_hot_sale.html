@@ -2105,8 +2105,9 @@ function importCSV(){
   const csvDayIdx = parseInt(document.getElementById('csvDay').value ?? currentDay, 10);
   const targetDay = isNaN(csvDayIdx) ? currentDay : csvDayIdx;
 
-  // ── Detect delimiter: tab > semicolon > comma ──
-  const delim=lines[0].includes('\t')?'\t':lines[0].includes(';')?';':',';
+  // ── Detect delimiter from first line that actually has one ──
+  const _delimSrc = lines.find(l=>l.includes('\t')||l.includes(';')) || lines[0];
+  const delim = _delimSrc.includes('\t')?'\t':_delimSrc.includes(';')?';':',';
 
   // ── Format A: brand on first line, then Hora/Transacciones/Ingresos header ──
   // e.g.:  Complot\nHora\tTransacciones\tTotal de ingresos\n0\t33\t$3.025.220...
