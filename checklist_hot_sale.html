@@ -2432,7 +2432,7 @@ async function _ghPush() {
 (async function _ghStartup() {
   let remoteIsEmpty = true;
   try {
-    const res = await fetch(GH_RAW + '?cb=' + Date.now());
+    const res = await fetch('/api/load?cb=' + Date.now());
     if(res.ok) {
       const remote = await res.json();
       const remoteTs = remote._ts || 0;
@@ -2461,7 +2461,7 @@ async function _ghPush() {
   setInterval(async function _ghPoll() {
     if(!_ghReady) return;
     try {
-      const res = await fetch(GH_RAW + '?cb=' + Date.now());
+      const res = await fetch('/api/load?cb=' + Date.now());
       if(!res.ok) return;
       const remote = await res.json();
       const remoteTs = remote._ts || 0;
