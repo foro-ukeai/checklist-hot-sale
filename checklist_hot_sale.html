@@ -1875,7 +1875,53 @@ function parseOCRMultiDay(text){
   return result;
 }
 
+// ── Parser: tabla por hora (Hora / Sesiones / Transacciones / Total ingresos …) ──
+function parseOCRHourTable(text){
+  const lines = text.split(/\n/).map(l=>l.trim()).filter(l=>l);
+  const rows = {}; // hour(0-23) -> {tr, fact}
+  for(const line of lines){
+    if(/hora|sesion|transacc|ingreso|ticket|cvr/i.test(line)) continue;
+    // OCR often reads "0" as "o" at line start
+    const norm = line.replace(/^[oO]\s/, '0 ');
+    const hourM = norm.match(/^(\d{1,2})\s/);
+    if(!hourM) continue;
+    const hour = parseInt(hourM[1], 10);
+    if(hour < 0 || hour > 23) continue;
+    // Revenue = first $ amount on the line
+    const factM = norm.match(/\$\s*([\d.,]+)/);
+    if(!factM) continue;
+    const fact = parseInt(factM[1].replace(/[.,]/g,''), 10);
+    if(!fact || fact <= 0) continue;
+    // Numbers between the hour token and the first $ → [sessions, transactions]
+    const afterHour  = norm.slice(hourM[0].length);
+    const beforeDollar = afterHour.slice(0, afterHour.indexOf('$'));
+    const beforeNums = [...beforeDollar.matchAll(/\b(\d+)\b/g)]
+      .map(m => parseInt(m[1], 10)).filter(n => !isNaN(n));
+    const tr = beforeNums.length >= 2 ? beforeNums[1] : (beforeNums[0] || null);
+    rows[hour] = { tr, fact };
+  }
+  if(!Object.keys(rows).length) return null; // not this format
+  // Accumulate hour 0..N for each corte
+  const CORTE_HOURS = [9, 12, 15, 22, 23]; // indices 0-4
+  const result = {};
+  CORTE_HOURS.forEach((targetHour, i) => {
+    let totalTr = 0, totalFact = 0, hasData = false;
+    for(let h = 0; h <= targetHour; h++){
+      if(rows[h]){ totalTr += rows[h].tr||0; totalFact += rows[h].fact||0; hasData = true; }
+    }
+    if(hasData) result['c'+i] = { tr: totalTr||null, fact: totalFact||null };
+  });
+  return result;
+}
+
 function parseOCRText(text){
+  // Try hourly table format first (header contains "hora" + "sesion"/"transacc")
+  const firstLine = text.split(/\n/).find(l=>l.trim()) || '';
+  if(/\bhora\b/i.test(firstLine) && /sesion|transacc/i.test(firstLine)){
+    const hourResult = parseOCRHourTable(text);
+    if(hourResult && Object.keys(hourResult).length) return hourResult;
+  }
+
   const result = {};
   const lines = text.split(/\n/).map(l=>l.trim()).filter(l=>l);
   const timePatterns = [
@@ -1898,7 +1944,6 @@ function parseOCRText(text){
         const allNums=[...extractNums(line),...(i+1<lines.length?extractNums(lines[i+1]):[])];
         const uniq=[...new Set(allNums)].sort((a,b)=>a-b);
         if(uniq.length>=2){
-          // Heuristic: smallest = tr, largest = fact (revenue much bigger than count)
           result[key]={tr:uniq[0], fact:uniq[uniq.length-1]};
         } else if(uniq.length===1){
           const v=uniq[0];
