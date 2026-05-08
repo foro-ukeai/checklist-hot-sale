@@ -4,6 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Checklist Hot Sale — Ukelele Estrategia</title>
+<script>
+(async()=>{
+  const HASH='2fb8aad102dbc43abf1ac0c51a1ff2b728066e6c8e140b13c6d78f05d3b40067';
+  async function sha256(s){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+  if(sessionStorage.getItem('hs_auth')==='1') return;
+  document.addEventListener('DOMContentLoaded',()=>{
+    const ov=document.getElementById('authOverlay');
+    if(ov) ov.style.display='flex';
+    document.getElementById('authForm').onsubmit=async e=>{
+      e.preventDefault();
+      const inp=document.getElementById('authPass');
+      if(await sha256(inp.value)===HASH){
+        sessionStorage.setItem('hs_auth','1');
+        ov.style.display='none';
+      } else {
+        inp.value='';
+        document.getElementById('authErr').style.opacity='1';
+        inp.focus();
+        setTimeout(()=>document.getElementById('authErr').style.opacity='0',2000);
+      }
+    };
+  });
+})();
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -636,6 +660,26 @@
 </style>
 </head>
 <body>
+
+<div id="authOverlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,15,0.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:36px 32px;width:320px;box-shadow:0 24px 60px rgba(0,0,0,0.28);display:flex;flex-direction:column;align-items:center;gap:18px">
+    <div style="font-size:28px">🔒</div>
+    <div style="text-align:center">
+      <div style="font-size:15px;font-weight:600;color:#14140f;margin-bottom:4px">Hot Sale — Ukelele</div>
+      <div style="font-size:12px;color:#8a8a82">Ingresá la contraseña para continuar</div>
+    </div>
+    <form id="authForm" style="width:100%;display:flex;flex-direction:column;gap:10px">
+      <input id="authPass" type="password" placeholder="Contraseña" autocomplete="current-password"
+        style="width:100%;padding:10px 12px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;font-size:14px;font-family:inherit;outline:none;text-align:center;letter-spacing:0.08em"
+        autofocus>
+      <button type="submit" style="width:100%;padding:10px;background:#14140f;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">
+        Ingresar →
+      </button>
+    </form>
+    <div id="authErr" style="font-size:12px;color:#c93838;opacity:0;transition:opacity .3s">Contraseña incorrecta</div>
+  </div>
+</div>
+
 <div class="container">
 
   <div class="header">
