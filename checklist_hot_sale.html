@@ -1997,19 +1997,34 @@ function importCSV(){
   const raw=document.getElementById('csvInput').value.trim();
   if(!raw){alert('Pegá el CSV primero.');return;}
   const lines=raw.split(/\r?\n/).filter(l=>l.trim());
-  if(lines.length<2){alert('El CSV necesita al menos un encabezado y una fila de datos.');return;}
-  const delim=lines[0].includes(';')?';':',';
-  const headers=lines[0].split(delim).map(h=>h.trim().toLowerCase());
+  if(!lines.length){alert('Sin datos.');return;}
 
-  // ── Ritmo horario format: cuenta,hora,pct_revenue_acum,pct_compras_acum,… ──
-  if(headers.includes('hora')){
-    const horaIdx=headers.indexOf('hora');
-    const cuentaIdx=headers.findIndex(h=>h==='cuenta'||h==='brand'||h==='marca');
-    const revIdx=headers.findIndex(h=>h.includes('revenue')||h.includes('fact'));
-    const cmpIdx=headers.findIndex(h=>h.includes('compras')||h.includes('transacc'));
-    const ri=revIdx>-1?revIdx:2;
-    const ci2=cmpIdx>-1?cmpIdx:3;
-    // CSV hours that map to CORTES indices [0..4]
+  // ── Detect delimiter: tab > semicolon > comma ──
+  const delim=lines[0].includes('\t')?'\t':lines[0].includes(';')?';':',';
+
+  // ── Detect format ──
+  const firstCols=lines[0].split(delim).map(c=>c.trim().toLowerCase());
+  const hasHoraHeader=firstCols.includes('hora')||firstCols.includes('hour');
+  // Headerless ritmo: col 1 of first row looks like "09hs", "12hs", etc.
+  const isHeaderlessRitmo=!hasHoraHeader && /^\d{1,2}hs$/i.test((lines[0].split(delim)[1]||'').trim());
+
+  // ── Ritmo horario format (with or without header row) ──
+  if(hasHoraHeader||isHeaderlessRitmo){
+    let dataLines,brandIdx,horaIdx,factPctIdx,transPctIdx;
+    if(hasHoraHeader){
+      dataLines=lines.slice(1);
+      horaIdx=firstCols.indexOf('hora');
+      brandIdx=firstCols.findIndex(h=>h==='cuenta'||h==='brand'||h==='marca');
+      if(brandIdx===-1) brandIdx=0;
+      const revIdx=firstCols.findIndex(h=>h.includes('revenue')||h.includes('fact'));
+      const cmpIdx=firstCols.findIndex(h=>h.includes('compras')||h.includes('transacc'));
+      factPctIdx=revIdx>-1?revIdx:2;
+      transPctIdx=cmpIdx>-1?cmpIdx:3;
+    } else {
+      // Headerless: brand=col0, hora=col1, factPct=col2, transPct=col3
+      dataLines=lines;
+      brandIdx=0; horaIdx=1; factPctIdx=2; transPctIdx=3;
+    }
     const HOUR_MAP={'09hs':0,'9hs':0,'12hs':1,'15hs':2,'22hs':3,'23hs':4,'cierre':4};
     const parsePct=s=>parseFloat(String(s).replace('%','').trim())||0;
     function matchBrand(name){
@@ -2029,9 +2044,9 @@ function importCSV(){
       return -1;
     }
     const byBrand={};
-    lines.slice(1).forEach(line=>{
+    dataLines.forEach(line=>{
       const cols=line.split(delim).map(c=>c.trim().replace(/^"|"$/g,''));
-      const bname=cols[cuentaIdx>-1?cuentaIdx:0]; if(!bname) return;
+      const bname=cols[brandIdx]; if(!bname) return;
       if(!byBrand[bname]) byBrand[bname]=[];
       byBrand[bname].push(cols);
     });
@@ -2041,12 +2056,11 @@ function importCSV(){
       if(mi===-1){skipped.push(bname);return;}
       const dist=new Array(5).fill(null);
       rows.forEach(r=>{
-        const h=r[horaIdx]?r[horaIdx].trim().toLowerCase():'';
+        const h=(r[horaIdx]||'').trim().toLowerCase();
         const ci=HOUR_MAP[h];
         if(ci===undefined) return;
-        dist[ci]=[parsePct(r[ci2]),parsePct(r[ri])];
+        dist[ci]=[parsePct(r[transPctIdx]),parsePct(r[factPctIdx])];
       });
-      // only load if we have all 5 corte entries
       if(dist.every(x=>x!==null)){
         BRAND_DIST[mi]=dist; loaded++;
       } else {
@@ -2069,6 +2083,7 @@ function importCSV(){
   }
 
   // ── Original format: one row per marca, columns = corte hours ──
+  if(lines.length<2){alert('El CSV necesita al menos un encabezado y una fila de datos.');return;}
   const rawHeaders=lines[0].split(delim).map(h=>h.trim());
   const colMap={};
   rawHeaders.forEach((h,i)=>{
