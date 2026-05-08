@@ -782,10 +782,10 @@
 
     <!-- CSV panel -->
     <div class="v3-csv" id="csvPanel">
-      <div style="font-size:13px;font-weight:500;color:#14140f;margin-bottom:8px">Importar objetivos desde CSV</div>
-      <div style="font-size:11px;color:#56554f;margin-bottom:8px;line-height:1.6">
-        Formato — una fila por marca:<br>
-        <code style="font-family:monospace;font-size:10px;background:#ededea;padding:2px 5px;border-radius:4px">Marca,9hs TR,9hs Fact,12hs TR,12hs Fact,15hs TR,15hs Fact,22hs TR,22hs Fact,Cierre TR,Cierre Fact</code>
+      <div style="font-size:13px;font-weight:500;color:#14140f;margin-bottom:8px">Importar desde CSV</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button id="csvModeReal" class="c-tb-btn" style="background:var(--azul-oscuro);color:#fff;border-color:var(--azul-oscuro)" onclick="setCsvMode('real')">Reales</button>
+        <button id="csvModeObj"  class="c-tb-btn" onclick="setCsvMode('obj')">Objetivos</button>
       </div>
       <textarea id="csvInput" placeholder="Pegá el CSV acá..."></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
@@ -1622,6 +1622,12 @@ function clearReals(){
   renderCortesV3();
 }
 
+let _csvMode = 'real'; // 'real' | 'obj'
+function setCsvMode(m){
+  _csvMode = m;
+  document.getElementById('csvModeReal').style.cssText = m==='real' ? 'background:var(--azul-oscuro);color:#fff;border-color:var(--azul-oscuro)' : '';
+  document.getElementById('csvModeObj').style.cssText  = m==='obj'  ? 'background:var(--azul-oscuro);color:#fff;border-color:var(--azul-oscuro)' : '';
+}
 function toggleCsvPanel(){ document.getElementById('csvPanel').classList.toggle('open'); }
 
 function toggleMarcasPanel(){
@@ -2136,21 +2142,45 @@ function importCSV(){
     Object.entries(byBrand).forEach(([bname,rows])=>{
       const mi=matchBrand(bname);
       if(mi===-1){skipped.push(bname);return;}
-      const dist=new Array(5).fill(null);
-      rows.forEach(r=>{
-        const h=(r[horaIdx]||'').trim().toLowerCase();
-        const ci=HOUR_MAP[h];
-        if(ci===undefined) return;
-        dist[ci]=[parsePct(r[transPctIdx]),parsePct(r[factPctIdx])];
-      });
-      if(dist.every(x=>x!==null)){
-        BRAND_DIST[mi]=dist; loaded++;
+      if(_csvMode==='obj'){
+        // Build distribution table for objectives auto-fill
+        const dist=new Array(5).fill(null);
+        rows.forEach(r=>{
+          const h=(r[horaIdx]||'').trim().toLowerCase();
+          const ci=HOUR_MAP[h];
+          if(ci===undefined) return;
+          dist[ci]=[parsePct(r[transPctIdx]),parsePct(r[factPctIdx])];
+        });
+        if(dist.every(x=>x!==null)){ BRAND_DIST[mi]=dist; loaded++; }
+        else { skipped.push(bname+' (datos incompletos: '+dist.filter(x=>x!==null).length+'/5)'); }
       } else {
-        skipped.push(bname+' (datos incompletos: '+dist.filter(x=>x!==null).length+'/5)');
+        // Load as real values: pct × total for each corte hour
+        // cols: brand, hora, factPct, transPct, ..., totalFact(col5), totalTrans(col6)
+        const totalFactCol = hasHoraHeader ? factPctIdx+3 : 5;
+        const totalTransCol = hasHoraHeader ? transPctIdx+3 : 6;
+        // Find totals from the last row (all rows have same total)
+        const anyRow = rows[rows.length-1] || [];
+        const parseNum = s => parseInt(String(s||'').replace(/[.,\s]/g,''),10)||0;
+        const totalFact  = parseNum(anyRow[totalFactCol]);
+        const totalTrans = parseNum(anyRow[totalTransCol]);
+        let hasAny = false;
+        rows.forEach(r=>{
+          const h=(r[horaIdx]||'').trim().toLowerCase();
+          const ci=HOUR_MAP[h];
+          if(ci===undefined) return;
+          const trVal  = totalTrans ? Math.round(totalTrans * parsePct(r[transPctIdx]) / 100) : 0;
+          const factVal= totalFact  ? Math.round(totalFact  * parsePct(r[factPctIdx])  / 100) : 0;
+          if(trVal)   setCell(currentDay,mi,ci,0,'real',String(trVal));
+          if(factVal) setCell(currentDay,mi,ci,1,'real',String(factVal));
+          hasAny = true;
+        });
+        if(hasAny) loaded++; else skipped.push(bname+' (sin totales)');
       }
     });
-    try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
-    MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(currentDay,m,4,k); if(obj!=='') autoFillCortes(currentDay,m,k,obj); }));
+    if(_csvMode==='obj'){
+      try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
+      MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(currentDay,m,4,k); if(obj!=='') autoFillCortes(currentDay,m,k,obj); }));
+    }
     renderCortesV3();
     const fb=document.getElementById('csvFeedback');
     fb.style.color=loaded>0?'#3c7a44':'#c93838';
@@ -2176,14 +2206,15 @@ function importCSV(){
     colMap[i]={c:ci,k:(hl.includes('fact')||hl.includes('$')||hl.includes('factur'))?1:0};
   });
   let loaded=0,skipped=[];
+  const csvField = _csvMode==='real' ? 'real' : 'obj';
   lines.slice(1).forEach(line=>{
     const cols=line.split(delim).map(c=>c.trim().replace(/^"|"$/g,''));
     const mi=MARCAS.findIndex(m=>m.toLowerCase()===cols[0].toLowerCase()||m.toLowerCase().includes(cols[0].toLowerCase())||cols[0].toLowerCase().includes(m.toLowerCase().split(' ')[0]));
     if(mi===-1){skipped.push(cols[0]);return;}
-    Object.entries(colMap).forEach(([ci,{c,k}])=>{ const val=cols[+ci]; if(val!==undefined&&val!=='') setCell(currentDay,mi,c,k,'obj',val); });
+    Object.entries(colMap).forEach(([ci,{c,k}])=>{ const val=cols[+ci]; if(val!==undefined&&val!=='') setCell(currentDay,mi,c,k,csvField,val); });
     loaded++;
   });
-  MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(currentDay,m,4,k); if(obj!=='') autoFillCortes(currentDay,m,k,obj); }));
+  if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(currentDay,m,4,k); if(obj!=='') autoFillCortes(currentDay,m,k,obj); }));
   renderCortesV3();
   document.getElementById('csvInput').value='';
   toggleCsvPanel();
