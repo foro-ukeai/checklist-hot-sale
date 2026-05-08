@@ -1371,19 +1371,11 @@ function setScopeMode(s){
   renderCortesV3();
 }
 // Returns the effective {obj, real} for a cell, aggregating days 0..currentDay in cum scope
-// For completed days (d < currentDay) at intermediate cortes: if the corte is empty,
-// fall back to Cierre so closed days contribute their full total.
 function getScopedCell(m,c,k){
   if(cortesScope==='day') return getCell(currentDay,m,c,k);
   let sO=0,sR=0,hO=false,hR=false;
   for(let d=0;d<=currentDay;d++){
-    let {obj,real} = getCell(d,m,c,k);
-    // For a completed day at an intermediate corte, fall back to Cierre if corte is empty
-    if(d < currentDay && c < 4){
-      const cierre = getCell(d,m,4,k);
-      if(obj==='' && cierre.obj!=='') obj = cierre.obj;
-      if(real==='' && cierre.real!=='') real = cierre.real;
-    }
+    const {obj,real}=getCell(d,m,c,k);
     const o=parsNum(obj),r=parsNum(real);
     if(!isNaN(o)){sO+=o;hO=true;} if(!isNaN(r)){sR+=r;hR=true;}
   }
