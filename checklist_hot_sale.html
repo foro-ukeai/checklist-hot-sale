@@ -782,10 +782,19 @@
 
     <!-- CSV panel -->
     <div class="v3-csv" id="csvPanel">
-      <div style="font-size:13px;font-weight:500;color:#14140f;margin-bottom:8px">Importar desde CSV</div>
-      <div style="display:flex;gap:6px;margin-bottom:10px">
-        <button id="csvModeReal" class="c-tb-btn" style="background:var(--azul-oscuro);color:#fff;border-color:var(--azul-oscuro)" onclick="setCsvMode('real')">Reales</button>
-        <button id="csvModeObj"  class="c-tb-btn" onclick="setCsvMode('obj')">Objetivos</button>
+      <div style="font-size:13px;font-weight:500;color:#14140f;margin-bottom:10px">Importar desde CSV</div>
+      <div style="display:flex;gap:12px;margin-bottom:10px;align-items:flex-end;flex-wrap:wrap">
+        <div>
+          <div class="v3-ic-lbl" style="font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Cargar como</div>
+          <div style="display:flex;gap:6px">
+            <button id="csvModeReal" class="c-tb-btn" style="background:var(--azul-oscuro);color:#fff;border-color:var(--azul-oscuro)" onclick="setCsvMode('real')">Reales</button>
+            <button id="csvModeObj"  class="c-tb-btn" onclick="setCsvMode('obj')">Objetivos</button>
+          </div>
+        </div>
+        <div>
+          <div class="v3-ic-lbl" style="font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Día</div>
+          <select class="v3-ic-select" id="csvDay" style="min-width:140px"></select>
+        </div>
       </div>
       <textarea id="csvInput" placeholder="Pegá el CSV acá..."></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
@@ -1628,7 +1637,14 @@ function setCsvMode(m){
   document.getElementById('csvModeReal').style.cssText = m==='real' ? 'background:var(--azul-oscuro);color:#fff;border-color:var(--azul-oscuro)' : '';
   document.getElementById('csvModeObj').style.cssText  = m==='obj'  ? 'background:var(--azul-oscuro);color:#fff;border-color:var(--azul-oscuro)' : '';
 }
-function toggleCsvPanel(){ document.getElementById('csvPanel').classList.toggle('open'); }
+function toggleCsvPanel(){
+  const p = document.getElementById('csvPanel');
+  p.classList.toggle('open');
+  if(p.classList.contains('open')){
+    const sel = document.getElementById('csvDay');
+    sel.innerHTML = DIAS.map((d,i)=>`<option value="${i}"${i===currentDay?' selected':''}>${d}</option>`).join('');
+  }
+}
 
 function toggleMarcasPanel(){
   const p = document.getElementById('marcasPanel');
@@ -2086,6 +2102,8 @@ function importCSV(){
   if(!raw){alert('Pegá el CSV primero.');return;}
   const lines=raw.split(/\r?\n/).filter(l=>l.trim());
   if(!lines.length){alert('Sin datos.');return;}
+  const csvDayIdx = parseInt(document.getElementById('csvDay').value ?? currentDay, 10);
+  const targetDay = isNaN(csvDayIdx) ? currentDay : csvDayIdx;
 
   // ── Detect delimiter: tab > semicolon > comma ──
   const delim=lines[0].includes('\t')?'\t':lines[0].includes(';')?';':',';
@@ -2140,10 +2158,10 @@ function importCSV(){
     CORTE_HOURS.forEach((maxH,ci)=>{
       let totalTr=0,totalFact=0;
       for(let h=0;h<=maxH;h++){ if(rows2[h]){ totalTr+=rows2[h].tr; totalFact+=rows2[h].fact; } }
-      if(totalTr)   setCell(currentDay,mi,ci,0,field2,String(totalTr));
-      if(totalFact) setCell(currentDay,mi,ci,1,field2,String(totalFact));
+      if(totalTr)   setCell(targetDay,mi,ci,0,field2,String(totalTr));
+      if(totalFact) setCell(targetDay,mi,ci,1,field2,String(totalFact));
     });
-    if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(currentDay,m,4,k); if(obj!=='') autoFillCortes(currentDay,m,k,obj); }));
+    if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDay,m,4,k); if(obj!=='') autoFillCortes(targetDay,m,k,obj); }));
     renderCortesV3();
     document.getElementById('csvInput').value='';
     fb.style.color='#3c7a44';
@@ -2232,8 +2250,8 @@ function importCSV(){
           if(ci===undefined) return;
           const trVal  = totalTrans ? Math.round(totalTrans * parsePct(r[transPctIdx]) / 100) : 0;
           const factVal= totalFact  ? Math.round(totalFact  * parsePct(r[factPctIdx])  / 100) : 0;
-          if(trVal)   setCell(currentDay,mi,ci,0,'real',String(trVal));
-          if(factVal) setCell(currentDay,mi,ci,1,'real',String(factVal));
+          if(trVal)   setCell(targetDay,mi,ci,0,'real',String(trVal));
+          if(factVal) setCell(targetDay,mi,ci,1,'real',String(factVal));
           hasAny = true;
         });
         if(hasAny) loaded++; else skipped.push(bname+' (sin totales)');
@@ -2241,7 +2259,7 @@ function importCSV(){
     });
     if(_csvMode==='obj'){
       try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
-      MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(currentDay,m,4,k); if(obj!=='') autoFillCortes(currentDay,m,k,obj); }));
+      MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDay,m,4,k); if(obj!=='') autoFillCortes(targetDay,m,k,obj); }));
     }
     renderCortesV3();
     const fb=document.getElementById('csvFeedback');
@@ -2273,10 +2291,10 @@ function importCSV(){
     const cols=line.split(delim).map(c=>c.trim().replace(/^"|"$/g,''));
     const mi=MARCAS.findIndex(m=>m.toLowerCase()===cols[0].toLowerCase()||m.toLowerCase().includes(cols[0].toLowerCase())||cols[0].toLowerCase().includes(m.toLowerCase().split(' ')[0]));
     if(mi===-1){skipped.push(cols[0]);return;}
-    Object.entries(colMap).forEach(([ci,{c,k}])=>{ const val=cols[+ci]; if(val!==undefined&&val!=='') setCell(currentDay,mi,c,k,csvField,val); });
+    Object.entries(colMap).forEach(([ci,{c,k}])=>{ const val=cols[+ci]; if(val!==undefined&&val!=='') setCell(targetDay,mi,c,k,csvField,val); });
     loaded++;
   });
-  if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(currentDay,m,4,k); if(obj!=='') autoFillCortes(currentDay,m,k,obj); }));
+  if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDay,m,4,k); if(obj!=='') autoFillCortes(targetDay,m,k,obj); }));
   renderCortesV3();
   document.getElementById('csvInput').value='';
   toggleCsvPanel();
