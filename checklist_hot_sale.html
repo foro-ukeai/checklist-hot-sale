@@ -2132,8 +2132,93 @@ function importCSV(){
   _undoPush();
 
   // ── Detect delimiter from first line that actually has one ──
-  const _delimSrc = lines.find(l=>l.includes('\t')||l.includes(';')) || lines[0];
-  const delim = _delimSrc.includes('\t')?'\t':_delimSrc.includes(';')?';':',';
+  const _delimSrc = lines.find(l=>l.includes('\t')||l.includes(';')||l.includes('|')) || lines[0];
+  const delim = _delimSrc.includes('\t')?'\t':_delimSrc.includes('|')?'|':_delimSrc.includes(';')?';':',';
+
+  // ── Format D: brand on first line, then Hora | Rev/hora | %Rev acum | %Tx acum ──
+  const secondLineCols0 = lines.length>1 ? lines[1].split(delim).map(c=>c.trim().toLowerCase()) : [];
+  const isCumAcum = lines[0].split(delim).length<=2
+    && secondLineCols0.some(c=>c.includes('hora'))
+    && secondLineCols0.some(c=>c.includes('rev') && c.includes('hora') || c.includes('rev/hora'));
+  const isCumAcumAlt = lines[0].split(delim).length<=2
+    && secondLineCols0.some(c=>c.includes('hora'))
+    && secondLineCols0.some(c=>c.includes('acum'));
+
+  if(isCumAcum || isCumAcumAlt){
+    const brandName = lines[0].trim();
+    const mi = (() => {
+      const n = brandName.toLowerCase().trim();
+      let i = MARCAS.findIndex(m=>m.toLowerCase()===n); if(i>-1) return i;
+      i = MARCAS.findIndex(m=>n.includes(m.toLowerCase().split(' ')[0])&&m.toLowerCase().split(' ')[0].length>3); if(i>-1) return i;
+      i = MARCAS.findIndex(m=>m.toLowerCase().includes(n)&&n.length>3); if(i>-1) return i;
+      if(n.includes('farma')) return MARCAS.findIndex(m=>m.toLowerCase().includes('farma'));
+      if(n.includes('provincia')) return MARCAS.findIndex(m=>m.toLowerCase().includes('provincia'));
+      if(n.includes('trip')) return MARCAS.findIndex(m=>m.toLowerCase().includes('trip'));
+      if(n.includes('hush')) return MARCAS.findIndex(m=>m.toLowerCase().includes('hush'));
+      if(n.includes('grimoldi')) return MARCAS.findIndex(m=>m.toLowerCase().includes('grimoldi'));
+      if(n.includes('audio')) return MARCAS.findIndex(m=>m.toLowerCase().includes('audio'));
+      if(n.includes('bgh')) return MARCAS.findIndex(m=>m.toLowerCase().includes('bgh'));
+      if(n.includes('open')) return MARCAS.findIndex(m=>m.toLowerCase().includes('open'));
+      return -1;
+    })();
+    const fb = document.getElementById('csvFeedback');
+    if(mi===-1){ fb.style.color='#c93838'; fb.textContent=`✗ Marca no reconocida: ${brandName}`; return; }
+
+    const hdr = secondLineCols0;
+    const horaIdx3   = hdr.findIndex(c=>c.includes('hora'));
+    const revHoraIdx = hdr.findIndex(c=>c.includes('rev') && (c.includes('hora') || c.includes('/')));
+    const revAcumIdx = hdr.findIndex(c=>c.includes('rev') && c.includes('acum'));
+    const txAcumIdx  = hdr.findIndex(c=>(c.includes('tx') || c.includes('trans')) && c.includes('acum'));
+
+    const parseAmt = s => parseInt(String(s||'').replace(/[$.\s]/g,'').replace(',','.'),10)||0;
+    const parsePct2 = s => parseFloat(String(s||'').replace('%','').trim())||0;
+    const parseHour = s => { const m=String(s).trim().match(/^(\d{1,2})/); return m?parseInt(m[1],10):-1; };
+
+    // Build hourly data
+    const hourRows = {};
+    lines.slice(2).forEach(line=>{
+      const cols = line.split(delim).map(c=>c.trim());
+      const h = parseHour(cols[horaIdx3]);
+      if(h<0||h>23) return;
+      hourRows[h] = {
+        rev:    revHoraIdx>-1 ? parseAmt(cols[revHoraIdx]) : 0,
+        revPct: revAcumIdx>-1 ? parsePct2(cols[revAcumIdx]) : 0,
+        txPct:  txAcumIdx>-1  ? parsePct2(cols[txAcumIdx])  : 0
+      };
+    });
+
+    const CORTE_HOURS_MAP = [[9,0],[12,1],[15,2],[22,3],[23,4]];
+    if(_csvMode==='real'){
+      // Sum Rev/hora up to each corte hour for facturación
+      CORTE_HOURS_MAP.forEach(([maxH,ci])=>{
+        let total=0;
+        for(let h=0;h<=maxH;h++) total += hourRows[h]?.rev||0;
+        if(total) _sc(mi,ci,1,'real',String(total));
+      });
+      fb.style.color='#3c7a44';
+      fb.textContent=`✓ ${brandName} — facturación cargada (reales)`;
+    } else {
+      // Store cumulative % as distribution
+      const dist = new Array(5).fill(null);
+      CORTE_HOURS_MAP.forEach(([h,ci])=>{
+        if(hourRows[h]) dist[ci]=[hourRows[h].txPct, hourRows[h].revPct];
+      });
+      if(dist.every(x=>x!==null)){
+        BRAND_DIST[mi]=dist;
+        try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
+        targetDays.forEach(d=>{ [0,1].forEach(k=>{ const {obj}=getCell(d,mi,4,k); if(obj!=='') autoFillCortes(d,mi,k,obj); }); });
+        fb.style.color='#3c7a44';
+        fb.textContent=`✓ ${brandName} — distribución cargada (objetivos)`;
+      } else {
+        fb.style.color='#c93838';
+        fb.textContent=`✗ ${brandName} — faltan horas (${dist.filter(x=>x!==null).length}/5 cortes)`;
+      }
+    }
+    renderCortesV3();
+    document.getElementById('csvInput').value='';
+    setTimeout(()=>{ fb.textContent=''; toggleCsvPanel(); },2500);
+    return;
+  }
 
   // ── Format A: brand on first line, then Hora/Transacciones/Ingresos header ──
   // e.g.:  Complot\nHora\tTransacciones\tTotal de ingresos\n0\t33\t$3.025.220...
