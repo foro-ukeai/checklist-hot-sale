@@ -2456,6 +2456,24 @@ async function _ghPush() {
   if(remoteIsEmpty && localStorage.getItem('hs_data')) {
     _ghPush();
   }
+
+  // Poll for remote changes every 30 seconds
+  setInterval(async function _ghPoll() {
+    if(!_ghReady) return;
+    try {
+      const res = await fetch(GH_RAW + '?cb=' + Date.now());
+      if(!res.ok) return;
+      const remote = await res.json();
+      const remoteTs = remote._ts || 0;
+      if(remoteTs <= 0) return;
+      const localTs = parseInt(localStorage.getItem('hs_sync_ts') || '0', 10);
+      if(remoteTs > localTs) {
+        let applied = false;
+        HS_SYNC_KEYS.forEach(k => { if(remote[k] != null){ _lsOrig.call(localStorage, k, remote[k]); applied = true; } });
+        if(applied) { _lsOrig.call(localStorage, 'hs_sync_ts', String(remoteTs)); location.reload(); }
+      }
+    } catch(e) { /* silent */ }
+  }, 30000);
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 
