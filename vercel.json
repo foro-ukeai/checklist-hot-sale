@@ -1,0 +1,3 @@
+{
+  "rewrites": [{ "source": "/", "destination": "/checklist_hot_sale.html" }]
+}
