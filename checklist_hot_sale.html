@@ -1370,12 +1370,25 @@ function setScopeMode(s){
   document.querySelectorAll('#scopeSeg button').forEach((b,i)=>b.classList.toggle('on',(i===0&&s==='day')||(i===1&&s==='cum')));
   renderCortesV3();
 }
-// Returns the effective {obj, real} for a cell, aggregating days 0..currentDay in cum scope
+// Returns the effective {obj, real} for a cell, aggregating days 0..currentDay in cum scope.
+// For the Cierre column (c=4): each day contributes its latest available value
+// (Cierre if loaded, else latest intermediate corte), so partial days still count.
+function _getBestVal(d,m,k){
+  // Returns {obj, real} = latest non-empty value scanning from Cierre down to 9hs
+  let obj='', real='';
+  for(let cc=4;cc>=0;cc--){
+    const cell=getCell(d,m,cc,k);
+    if(obj===''&&cell.obj!=='') obj=cell.obj;
+    if(real===''&&cell.real!=='') real=cell.real;
+    if(obj!==''&&real!=='') break;
+  }
+  return {obj,real};
+}
 function getScopedCell(m,c,k){
   if(cortesScope==='day') return getCell(currentDay,m,c,k);
   let sO=0,sR=0,hO=false,hR=false;
   for(let d=0;d<=currentDay;d++){
-    const {obj,real}=getCell(d,m,c,k);
+    const {obj,real} = c===4 ? _getBestVal(d,m,k) : getCell(d,m,c,k);
     const o=parsNum(obj),r=parsNum(real);
     if(!isNaN(o)){sO+=o;hO=true;} if(!isNaN(r)){sR+=r;hR=true;}
   }
