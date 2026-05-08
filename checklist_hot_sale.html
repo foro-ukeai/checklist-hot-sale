@@ -2176,6 +2176,51 @@ function downloadHTML(src){
   localStorage.setItem('hs_init_trip_v1','1');
 })();
 
+// ── GitHub Sync ──────────────────────────────────────────────────────────────
+const GH_RAW = 'https://raw.githubusercontent.com/foro-ukeai/checklist-hot-sale/main/data.json';
+const HS_SYNC_KEYS = ['hs_data','hs_dist','hs_state','hs_notes','hs_tags','hs_tag_colors','hs_sections','hs_sec_titles','hs_marcas'];
+
+// Patch localStorage.setItem to trigger debounced cloud save on any hs_* write
+const _lsOrig = Storage.prototype.setItem;
+Storage.prototype.setItem = function(key, value) {
+  _lsOrig.call(this, key, value);
+  if(this === localStorage && key.startsWith('hs_') && key !== 'hs_sync_ts') {
+    _ghDebouncedSave();
+  }
+};
+
+let _ghSaveTimer = null;
+function _ghDebouncedSave() {
+  clearTimeout(_ghSaveTimer);
+  _ghSaveTimer = setTimeout(_ghPush, 1800);
+}
+
+async function _ghPush() {
+  try {
+    const payload = { _ts: Date.now() };
+    HS_SYNC_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) payload[k] = v; });
+    _lsOrig.call(localStorage, 'hs_sync_ts', String(payload._ts));
+    const r = await fetch('/api/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ data: payload }) });
+    if(!r.ok) console.warn('[sync] save failed', r.status);
+  } catch(e) { /* silent */ }
+}
+
+// On load: pull remote and apply if newer (then reload once)
+(async function _ghPull() {
+  try {
+    const res = await fetch(GH_RAW + '?cb=' + Date.now());
+    if(!res.ok) return;
+    const remote = await res.json();
+    const remoteTs = remote._ts || 0;
+    const localTs  = parseInt(localStorage.getItem('hs_sync_ts') || '0', 10);
+    if(remoteTs <= localTs) return; // already up to date
+    let applied = false;
+    HS_SYNC_KEYS.forEach(k => { if(remote[k] != null){ _lsOrig.call(localStorage, k, remote[k]); applied = true; } });
+    if(applied) { _lsOrig.call(localStorage, 'hs_sync_ts', String(remoteTs)); location.reload(); }
+  } catch(e) { /* silent */ }
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+
 function render(){ applyDynStyles(); initAutoFill(); renderDayTabs(); renderSummary(); renderSections(); }
 render();
 </script>
