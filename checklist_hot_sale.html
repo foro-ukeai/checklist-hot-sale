@@ -699,15 +699,15 @@
 
   <!-- View switcher -->
   <div class="view-tabs">
-    <button class="view-tab active" onclick="setView('checklist')">Checklist</button>
-    <button class="view-tab" onclick="setView('cortes')">Cortes</button>
+    <button class="view-tab" onclick="setView('checklist')">Checklist</button>
+    <button class="view-tab active" onclick="setView('cortes')">Cortes</button>
   </div>
 
   <!-- Day tabs (shared) -->
   <div class="day-tabs" id="dayTabs"></div>
 
   <!-- ══ CHECKLIST VIEW ════════════════════════ -->
-  <div id="view-checklist">
+  <div id="view-checklist" style="display:none">
     <div class="summary-bar" id="summaryBar"></div>
 
     <div class="tag-config-panel" id="tagConfigPanel">
@@ -739,7 +739,7 @@
   </div>
 
   <!-- ══ CORTES V3 ════════════════════════════ -->
-  <div id="view-cortes" style="display:none">
+  <div id="view-cortes">
 
     <!-- Header -->
     <div class="c-head">
@@ -897,7 +897,7 @@
 ══════════════════════════════════════════════════ */
 const DIAS = ["Día 1","Día 2","Día 3","Día 4","Día 5","Día 6","Día 7 (cierre)"];
 let currentDay  = (()=>{ try{ const v=parseInt(localStorage.getItem('hs_day')); return isNaN(v)?0:Math.min(v,6); }catch(e){return 0;} })();
-let currentView = 'checklist';
+let currentView = 'cortes';
 
 function renderDayTabs(){
   document.getElementById('dayTabs').innerHTML =
