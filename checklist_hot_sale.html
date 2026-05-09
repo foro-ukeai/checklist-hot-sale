@@ -1,7 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Checklist Hot Sale — Ukelele Estrategia</title>
 <script>
@@ -657,22 +660,122 @@
   .v3-cell .pct.amber { color: #c2820f; }
   .v3-cell .pct.red   { color: #c93838; }
   .v3-cell .pct.empty { color: #b5b4ad; background: transparent; }
+  /* ════════════════════════════════════════
+     UKELELE BRAND OVERRIDE — PREVIEW
+  ════════════════════════════════════════ */
+
+  :root {
+    --font-sans: 'Lato', 'Helvetica Neue', Arial, sans-serif;
+    --font-display: 'Montserrat', system-ui, -apple-system, sans-serif;
+    --uke-rojo: #E30233;
+    --uke-azul-oscuro: #004E8A;
+    --uke-lavanda: #F1EBF4;
+    --brand: #E30233;
+    --azul-oscuro: #004E8A;
+    --color-background-tertiary: #F1EBF4;
+    --bg-0: #F1EBF4;
+  }
+
+  /* Body */
+  body { background: #F1EBF4; }
+
+  /* Títulos y stat vals usan Montserrat */
+  h1, h2, h3, h4, h5 { font-family: 'Montserrat', sans-serif !important; }
+  .stat-val { font-family: 'Montserrat', sans-serif !important; font-weight: 800 !important; letter-spacing: -0.01em !important; }
+  .v3-kpi-val { font-family: 'Montserrat', sans-serif !important; font-weight: 800 !important; letter-spacing: -0.01em !important; }
+  .v3-rank-head .t, .v3-heat-head .t, .c-title { font-family: 'Montserrat', sans-serif !important; font-weight: 700 !important; }
+  .v1-sec-title { font-family: 'Montserrat', sans-serif !important; font-weight: 700 !important; }
+
+  /* Header — rojo Ukelele */
+  .header {
+    background: #E30233;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 16px rgba(227,2,51,0.25);
+  }
+  .header h1 {
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 20px !important;
+    color: #fff !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+  .header p {
+    font-family: 'Lato', sans-serif !important;
+    color: rgba(255,255,255,0.82) !important;
+    font-size: 13px !important;
+  }
+  /* Logo wordmark en el header */
+  .header::before {
+    content: 'uke.';
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    display: block;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+  /* Botones del header sobre rojo */
+  .tag-config-toggle { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }
+  .tag-config-toggle:hover { background: rgba(255,255,255,0.28) !important; }
+  .reset-btn { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; font-family: 'Montserrat', sans-serif !important; font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.02em !important; }
+  .reset-btn:hover { background: rgba(255,255,255,0.28) !important; }
+  .hdr-import-btn { background: rgba(0,0,0,0.25) !important; color: #fff !important; border-color: rgba(0,0,0,0.15) !important; }
+  .hdr-import-btn:hover { background: rgba(0,0,0,0.35) !important; }
+
+  /* View tabs */
+  .view-tabs { background: #fff; border-color: rgba(0,0,0,0.08); }
+  .view-tab { font-family: 'Montserrat', sans-serif !important; font-size: 12px !important; font-weight: 600 !important; letter-spacing: 0.02em !important; }
+  .view-tab.active { color: #E30233 !important; font-weight: 700 !important; }
+
+  /* Day tabs */
+  .day-tab { font-family: 'Montserrat', sans-serif !important; font-size: 12px !important; font-weight: 600 !important; background: #fff !important; }
+  .day-tab.active { background: #E30233 !important; border-color: #C7022D !important; }
+
+  /* Summary stats */
+  .stat { border-radius: 12px !important; border-color: rgba(0,0,0,0.07) !important; background: #fff !important; }
+  .stat-lbl { font-family: 'Montserrat', sans-serif !important; font-size: 10px !important; font-weight: 700 !important; }
+
+  /* Section cards */
+  .v1-section { border-radius: 12px !important; }
+
+  /* KPI cards */
+  .v3-kpi { border-radius: 12px !important; background: #fff !important; }
+  .v3-kpi-lbl { font-family: 'Montserrat', sans-serif !important; font-weight: 700 !important; font-size: 10px !important; }
+
+  /* Ranking y heatmap */
+  .v3-rank, .v3-heat { border-radius: 14px !important; }
+  .v3-rank-head .t { font-size: 13px !important; }
+
+  /* C-head (cortes header) */
+  .c-crumb { font-family: 'Montserrat', sans-serif !important; font-weight: 700 !important; color: #E30233 !important; opacity: 1 !important; font-size: 10px !important; }
+  .c-title { font-family: 'Montserrat', sans-serif !important; font-weight: 800 !important; font-size: 20px !important; color: #000 !important; }
+  .c-sub { font-family: 'Lato', sans-serif !important; }
+
+  /* Segment buttons */
+  .c-seg button { font-family: 'Montserrat', sans-serif !important; font-weight: 600 !important; font-size: 11px !important; }
+  .c-seg button.on { color: #E30233 !important; font-weight: 700 !important; }
+  .c-tb-btn { font-family: 'Montserrat', sans-serif !important; font-weight: 600 !important; font-size: 11px !important; }
 </style>
 </head>
 <body>
 
 <div id="authOverlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,15,0.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:14px;padding:36px 32px;width:320px;box-shadow:0 24px 60px rgba(0,0,0,0.28);display:flex;flex-direction:column;align-items:center;gap:18px">
-    <div style="font-size:28px">🔒</div>
+    <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:24px;color:#E30233;letter-spacing:0.02em">uke.</div>
     <div style="text-align:center">
-      <div style="font-size:15px;font-weight:600;color:#14140f;margin-bottom:4px">Hot Sale — Ukelele</div>
+      <div style="font-size:15px;font-weight:800;color:#14140f;margin-bottom:4px;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.03em">Hot Sale — Ukelele</div>
       <div style="font-size:12px;color:#8a8a82">Ingresá la contraseña para continuar</div>
     </div>
     <form id="authForm" style="width:100%;display:flex;flex-direction:column;gap:10px">
       <input id="authPass" type="password" placeholder="Contraseña" autocomplete="current-password"
         style="width:100%;padding:10px 12px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;font-size:14px;font-family:inherit;outline:none;text-align:center;letter-spacing:0.08em"
         autofocus>
-      <button type="submit" style="width:100%;padding:10px;background:#14140f;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">
+      <button type="submit" style="width:100%;padding:10px;background:#E30233;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer;letter-spacing:0.04em;text-transform:uppercase">
         Ingresar →
       </button>
     </form>
@@ -2606,4 +2709,5 @@ render();
 </script>
 </body>
 </html>
+
 
