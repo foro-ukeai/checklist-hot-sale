@@ -999,18 +999,19 @@
 /* ══════════════════════════════════════════════════
    SHARED
 ══════════════════════════════════════════════════ */
-const DIAS = ["Día 1","Día 2","Día 3","Día 4","Día 5","Día 6","Día 7 (cierre)"];
-let currentDay  = (()=>{ try{ const v=parseInt(localStorage.getItem('hs_day')); return isNaN(v)?0:Math.min(v,6); }catch(e){return 0;} })();
+const DIAS = ["Día 1","Día 2","Día 3","Día 4","Día 5","Día 6","Día 7","Día 8 (cierre)"];
+let currentDay  = (()=>{ try{ const v=parseInt(localStorage.getItem('hs_day')); return isNaN(v)?0:Math.min(v,7); }catch(e){return 0;} })();
 let currentView = 'cortes';
 
 function renderDayTabs(){
+  const maxD = getMaxDias();
   document.getElementById('dayTabs').innerHTML =
-    DIAS.map((d,i)=>`<div class="day-tab${i===currentDay?' active':''}" onclick="setDay(${i})">${d}</div>`).join('');
+    DIAS.slice(0,maxD).map((d,i)=>`<div class="day-tab${i===currentDay?' active':''}" onclick="setDay(${i})">${d}</div>`).join('');
 }
 
 function setDay(i){
-  currentDay = i;
-  try{ localStorage.setItem('hs_day', i); }catch(e){}
+  currentDay = Math.min(i, getMaxDias()-1);
+  try{ localStorage.setItem('hs_day', currentDay); }catch(e){}
   renderDayTabs();
   if(currentView==='checklist'){ renderSections(); renderSummary(); }
   else { renderCortesV3(); }
@@ -1404,6 +1405,11 @@ function addSection(){
 const _MARCAS_SEED = ['Open Sports','Trip Store','Grimoldi','Hushpuppies','Longvie','Banco Provincia','Complot','BGH','Casa del Audio'];
 let MARCAS = (()=>{ try{ const s=localStorage.getItem('hs_marcas'); if(s) return JSON.parse(s); return [..._MARCAS_SEED]; }catch(e){ return [..._MARCAS_SEED]; } })();
 function persistMarcas(){ try{ localStorage.setItem('hs_marcas',JSON.stringify(MARCAS)); }catch(e){} }
+let MARCA_DIAS_CONFIG = (()=>{ try{ const s=localStorage.getItem('hs_marca_dias'); if(s) return JSON.parse(s); return {}; }catch(e){return {};} })();
+function persistMarcaDias(){ try{ localStorage.setItem('hs_marca_dias',JSON.stringify(MARCA_DIAS_CONFIG)); }catch(e){} }
+function getMarcaDias(m){ return MARCA_DIAS_CONFIG[m] || 7; }
+function getMaxDias(){ return MARCAS.length ? Math.max(...MARCAS.map((_,i)=>getMarcaDias(i))) : 7; }
+function isBrandActive(m){ return currentDay < getMarcaDias(m); }
 const CORTES = ['9hs','12hs','15hs','22hs','Cierre'];
 const STAGES = ['mañana','mediodía','tarde','noche','cierre día'];
 
@@ -1489,8 +1495,9 @@ function _getBestVal(d,m,k){
 }
 function getScopedCell(m,c,k){
   if(cortesScope==='day') return getCell(currentDay,m,c,k);
+  const maxDay = Math.min(currentDay, getMarcaDias(m)-1);
   let sO=0,sR=0,hO=false,hR=false;
-  for(let d=0;d<=currentDay;d++){
+  for(let d=0;d<=maxDay;d++){
     const {obj,real} = c===4 ? _getBestVal(d,m,k) : getCell(d,m,c,k);
     const o=parsNum(obj),r=parsNum(real);
     if(!isNaN(o)){sO+=o;hO=true;} if(!isNaN(r)){sR+=r;hR=true;}
@@ -1524,15 +1531,16 @@ function getActiveCut(){
 function renderKpiStrip(){
   const k=cortesK, ci=getActiveCut(), cutLbl=CORTES[ci];
   let sO=0,sR=0,hO=false,hR=false;
-  MARCAS.forEach((_,m)=>{ const {obj,real}=getScopedCell(m,ci,k); const o=parsNum(obj),r=parsNum(real); if(!isNaN(o)){sO+=o;hO=true;} if(!isNaN(r)){sR+=r;hR=true;} });
+  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const {obj,real}=getScopedCell(m,ci,k); const o=parsNum(obj),r=parsNum(real); if(!isNaN(o)){sO+=o;hO=true;} if(!isNaN(r)){sR+=r;hR=true;} });
   const p1=hO&&hR?calcPct(String(sO),String(sR)):null, c1=pCls(p1);
 
   let rPS=0,ePS=0,rN=0,eN=0;
-  MARCAS.forEach((_,m)=>{ const cO=parsNum(getScopedCell(m,4,k).obj); if(isNaN(cO)||cO===0) return; const {obj,real}=getScopedCell(m,ci,k); const oN=parsNum(obj),rN2=parsNum(real); if(!isNaN(oN)){ePS+=oN/cO*100;eN++;} if(!isNaN(rN2)){rPS+=rN2/cO*100;rN++;} });
+  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const cO=parsNum(getScopedCell(m,4,k).obj); if(isNaN(cO)||cO===0) return; const {obj,real}=getScopedCell(m,ci,k); const oN=parsNum(obj),rN2=parsNum(real); if(!isNaN(oN)){ePS+=oN/cO*100;eN++;} if(!isNaN(rN2)){rPS+=rN2/cO*100;rN++;} });
   const espA=eN>0?ePS/eN:null, realA=rN>0?rPS/rN:null, gp=(espA!==null&&realA!==null)?realA-espA:null;
 
   let above=0, below=0;
-  MARCAS.forEach((_,m)=>{ const sc=getScopedCell(m,ci,k); const p=calcPct(sc.obj,sc.real); if(p!==null){if(p>=100)above++;else if(p<90)below++;} });
+  const activeMarcas=MARCAS.filter((_,m)=>isBrandActive(m));
+  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const sc=getScopedCell(m,ci,k); const p=calcPct(sc.obj,sc.real); if(p!==null){if(p>=100)above++;else if(p<90)below++;} });
 
   document.getElementById('kpiStrip').innerHTML=`
     <div class="v3-kpi">
@@ -1549,15 +1557,15 @@ function renderKpiStrip(){
     </div>
     <div class="v3-kpi">
       <div class="v3-kpi-lbl">Adelante del ritmo</div>
-      <div class="v3-kpi-val fn green">${above}<span style="color:#8a8a82;font-size:14px;font-weight:500"> / ${MARCAS.length}</span></div>
+      <div class="v3-kpi-val fn green">${above}<span style="color:#8a8a82;font-size:14px;font-weight:500"> / ${activeMarcas.length}</span></div>
       <div class="v3-kpi-sub">100%+ del objetivo</div>
-      <div class="v3-kpi-bar green"><span style="width:${above/MARCAS.length*100}%"></span></div>
+      <div class="v3-kpi-bar green"><span style="width:${activeMarcas.length?above/activeMarcas.length*100:0}%"></span></div>
     </div>
     <div class="v3-kpi">
       <div class="v3-kpi-lbl">En alerta</div>
-      <div class="v3-kpi-val fn red">${below}<span style="color:#8a8a82;font-size:14px;font-weight:500"> / ${MARCAS.length}</span></div>
+      <div class="v3-kpi-val fn red">${below}<span style="color:#8a8a82;font-size:14px;font-weight:500"> / ${activeMarcas.length}</span></div>
       <div class="v3-kpi-sub">debajo de 90%</div>
-      <div class="v3-kpi-bar red"><span style="width:${below/MARCAS.length*100}%"></span></div>
+      <div class="v3-kpi-bar red"><span style="width:${activeMarcas.length?below/activeMarcas.length*100:0}%"></span></div>
     </div>`;
 }
 
@@ -1629,7 +1637,7 @@ function v3PctCell(m,c,k){
 
 function v3TotNumCell(c,k){
   let sO=0,sR=0,hO=false,hR=false;
-  MARCAS.forEach((_,m)=>{ const {obj,real}=getScopedCell(m,c,k); const o=parsNum(obj),r=parsNum(real); if(!isNaN(o)){sO+=o;hO=true;} if(!isNaN(r)){sR+=r;hR=true;} });
+  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const {obj,real}=getScopedCell(m,c,k); const o=parsNum(obj),r=parsNum(real); if(!isNaN(o)){sO+=o;hO=true;} if(!isNaN(r)){sR+=r;hR=true;} });
   const p=hO&&hR?calcPct(String(sO),String(sR)):null;
   return `<div class="v3-cell h-empty totals-cell">
     <span class="lbl-mini"><span>obj</span><span>real</span></span>
@@ -1641,7 +1649,7 @@ function v3TotNumCell(c,k){
 
 function v3TotPctCell(c,k){
   let eS=0,rS=0,eN=0,rN=0;
-  MARCAS.forEach((_,m)=>{ const cO=parsNum(getCell(currentDay,m,4,k).obj); if(isNaN(cO)||cO===0) return; const {obj,real}=getCell(currentDay,m,c,k); const oN=parsNum(obj),rN2=parsNum(real); if(!isNaN(oN)){eS+=oN/cO*100;eN++;} if(!isNaN(rN2)){rS+=rN2/cO*100;rN++;} });
+  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const cO=parsNum(getCell(currentDay,m,4,k).obj); if(isNaN(cO)||cO===0) return; const {obj,real}=getCell(currentDay,m,c,k); const oN=parsNum(obj),rN2=parsNum(real); if(!isNaN(oN)){eS+=oN/cO*100;eN++;} if(!isNaN(rN2)){rS+=rN2/cO*100;rN++;} });
   const espA=eN>0?eS/eN:null, realA=rN>0?rS/rN:null, gap=(espA!==null&&realA!==null)?realA-espA:null;
   return `<div class="v3-cell h-empty totals-cell">
     <span class="lbl-mini"><span>esp</span><span>real</span></span>
@@ -1661,10 +1669,15 @@ function renderHeatGrid(){
 
   // Brand rows
   MARCAS.forEach((marca,m)=>{
-    const {obj,real}=getCell(currentDay,m,ci,k);
-    const dotCls=pCls(calcPct(obj,real));
-    html+=`<div class="brand"><span class="dot ${dotCls}"></span>${marca}</div>`;
-    CORTES.forEach((_,c)=>{ html+=isPct?v3PctCell(m,c,k):v3NumCell(m,c,k); });
+    if(!isBrandActive(m)){
+      html+=`<div class="brand" style="opacity:0.35"><span class="dot empty"></span>${marca} <span style="font-size:10px;color:#8a8a82;font-style:italic">— 7 días</span></div>`;
+      CORTES.forEach(()=>{ html+=`<div class="v3-cell h-empty" style="opacity:0.2"><span class="num obj" style="color:#b5b4ad">—</span></div>`; });
+    } else {
+      const {obj,real}=getCell(currentDay,m,ci,k);
+      const dotCls=pCls(calcPct(obj,real));
+      html+=`<div class="brand"><span class="dot ${dotCls}"></span>${marca}</div>`;
+      CORTES.forEach((_,c)=>{ html+=isPct?v3PctCell(m,c,k):v3NumCell(m,c,k); });
+    }
   });
 
   // Totals row
@@ -1691,7 +1704,7 @@ function renderHeatGrid(){
 /* ── Main render ── */
 function renderCortesV3(){
   const scopeLabel = cortesScope==='cum'
-    ? `acumulado D1 → ${['D1','D2','D3','D4','D5','D6','D7'][currentDay]}`
+    ? `acumulado D1 → ${['D1','D2','D3','D4','D5','D6','D7','D8'][currentDay]}`
     : `solo ${DIAS[currentDay]}`;
   document.getElementById('cSub').textContent=scopeLabel;
 
@@ -1791,12 +1804,27 @@ function toggleMarcasPanel(){
 }
 
 function renderMarcasPanel(){
-  document.getElementById('marcasList').innerHTML = MARCAS.map((m,i)=>
-    `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg-2);border-radius:5px">
+  document.getElementById('marcasList').innerHTML = MARCAS.map((m,i)=>{
+    const dias = getMarcaDias(i);
+    const is8 = dias === 8;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg-2);border-radius:5px">
       <span style="flex:1;font-size:12px">${m}</span>
+      <button onclick="toggleMarcaDias(${i})" title="${is8?'8 días — clic para volver a 7':'7 días — clic para activar 8 días'}"
+        style="background:${is8?'var(--azul-oscuro)':'none'};color:${is8?'#fff':'#8a8a82'};border:1px solid ${is8?'var(--azul-oscuro)':'#d0cfc8'};border-radius:4px;cursor:pointer;font-size:10px;padding:1px 6px;font-weight:700;line-height:1.6">${dias}d</button>
       <button onclick="removeMarca(${i})" style="background:none;border:none;cursor:pointer;color:#c93838;font-size:16px;line-height:1;padding:0 2px" title="Eliminar">×</button>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
+}
+
+function toggleMarcaDias(idx){
+  const cur = getMarcaDias(idx);
+  if(cur === 7){ MARCA_DIAS_CONFIG[idx] = 8; } else { delete MARCA_DIAS_CONFIG[idx]; }
+  persistMarcaDias();
+  const maxD = getMaxDias();
+  if(currentDay >= maxD){ currentDay = maxD-1; try{localStorage.setItem('hs_day',currentDay);}catch(e){} }
+  renderMarcasPanel();
+  renderDayTabs();
+  if(currentView==='cortes') renderCortesV3();
 }
 
 function addMarca(){
@@ -1846,6 +1874,16 @@ function removeMarca(idx){
   Object.keys(BRAND_DIST).forEach(k=>delete BRAND_DIST[k]);
   Object.assign(BRAND_DIST,newDist);
   try{ localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST)); }catch(e){}
+
+  // Rebuild MARCA_DIAS_CONFIG
+  const newMarcaDias={};
+  Object.entries(MARCA_DIAS_CONFIG).forEach(([m,v])=>{
+    const mi=parseInt(m); if(mi===idx) return;
+    newMarcaDias[mi>idx?mi-1:mi]=v;
+  });
+  Object.keys(MARCA_DIAS_CONFIG).forEach(k=>delete MARCA_DIAS_CONFIG[k]);
+  Object.assign(MARCA_DIAS_CONFIG,newMarcaDias);
+  persistMarcaDias();
 
   MARCAS.splice(idx,1);
   persistMarcas();
