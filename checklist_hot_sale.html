@@ -1413,6 +1413,11 @@ function isBrandActive(m){ return currentDay < getMarcaDias(m); }
 const CORTES = ['9hs','12hs','15hs','22hs','Cierre'];
 const STAGES = ['mañana','mediodía','tarde','noche','cierre día'];
 
+// Distribución por día: BRAND_DIST_DAY[marca][dia] = [[TR%,Fact%] x5 cortes]
+let BRAND_DIST_DAY = (()=>{ try{ const s=localStorage.getItem('hs_dist_day'); return s?JSON.parse(s):{}; }catch(e){return {};} })();
+function persistDistDay(){ try{ localStorage.setItem('hs_dist_day',JSON.stringify(BRAND_DIST_DAY)); }catch(e){} }
+function getDistForDay(m,d){ return (BRAND_DIST_DAY[m]&&BRAND_DIST_DAY[m][d]) || BRAND_DIST[m] || null; }
+
 // Distribución histórica acumulada [TR%, Fact%] por corte — Grimoldi GA4 12–18 may 2025
 let BRAND_DIST = (()=>{ try{ const s=localStorage.getItem('hs_dist'); return s?JSON.parse(s):{
   0: [[14.6,14.2],[31.0,30.7],[47.6,47.7],[91.4,91.3],[100,100]], // Open Sports
@@ -1451,7 +1456,7 @@ function formatVal(val,k){ const n=parsNum(val); if(isNaN(n)||val==='') return '
 function unformatInput(v){ return String(v).replace(/\./g,'').replace(/[$\s]/g,'').trim(); }
 
 function autoFillCortes(d,m,k,cierreVal){
-  const dist=BRAND_DIST[m]; if(!dist) return;
+  const dist=getDistForDay(m,d); if(!dist) return;
   const base=parsNum(String(cierreVal));
   if(isNaN(base)||base===0||String(cierreVal).trim()===''){
     for(let c=0;c<4;c++) setCell(d,m,c,k,'obj','');
@@ -2297,6 +2302,87 @@ function importCSV(){
   const isCumAcumAlt = lines[0].split(delim).length<=2
     && secondLineCols0.some(c=>c.includes('hora'))
     && secondLineCols0.some(c=>c.includes('acum'));
+
+  // Format E: BGH\nHora | 12-may | 13-may | ... | Prom\n---\n00hs | 1.7% | ...
+  const isMultiDateHora = lines[0].split(delim).length<=2
+    && secondLineCols0.some(c=>c.includes('hora'))
+    && (secondLineCols0.some(c=>c.includes('prom')) || secondLineCols0.some(c=>/\d{1,2}-[a-z]{3}/.test(c)));
+
+  if(isMultiDateHora){
+    const brandName = lines[0].trim();
+    const fb = document.getElementById('csvFeedback');
+    const matchM = n => {
+      n=n.toLowerCase().trim();
+      let i=MARCAS.findIndex(m=>m.toLowerCase()===n); if(i>-1) return i;
+      i=MARCAS.findIndex(m=>n.includes(m.toLowerCase().split(' ')[0])&&m.toLowerCase().split(' ')[0].length>3); if(i>-1) return i;
+      i=MARCAS.findIndex(m=>m.toLowerCase().includes(n)&&n.length>3); if(i>-1) return i;
+      for(const [k,v] of [['bgh','bgh'],['audio','audio'],['grimoldi','grimoldi'],['hush','hush'],
+        ['trip','trip'],['open','open'],['provincia','provincia'],['complot','complot'],['longvie','longvie']])
+        if(n.includes(k)) return MARCAS.findIndex(m=>m.toLowerCase().includes(v));
+      return -1;
+    };
+    const mi = matchM(brandName);
+    if(mi===-1){ fb.style.color='#c93838'; fb.textContent=`✗ Marca no reconocida: ${brandName}`; return; }
+
+    // Header: Hora | date1 | date2 | ... | Prom  (or without Prom)
+    const hdrCols = secondLineCols0; // already lowercased
+    const parsePctE = s => parseFloat(String(s||'').replace('%','').replace(',','.').trim())||0;
+    const parseHourE = s => { const m=String(s).trim().match(/^(\d{1,2})/); return m?parseInt(m[1],10):-1; };
+    const CORTE_HOURS = [9,12,15,22,23]; // → corte indices 0..4
+
+    // Detect date columns (skip "hora" and "prom"/"-" separators)
+    const dateCols = []; // [{colIdx, dayLabel}]
+    hdrCols.forEach((c,i)=>{
+      if(i===0) return; // hora column
+      if(c.includes('prom')||/^-+$/.test(c)||c==='') return;
+      dateCols.push({colIdx:i, label:c});
+    });
+    const promIdx = hdrCols.findIndex(c=>c.includes('prom'));
+
+    // Parse hourly rows (skip separator lines)
+    const hourData = {}; // hour → [val per col index]
+    lines.slice(2).forEach(line=>{
+      if(/^[-=\s]*$/.test(line.trim())) return;
+      const cols = line.split(delim).map(c=>c.trim());
+      const h = parseHourE(cols[0]);
+      if(h<0||h>23) return;
+      hourData[h] = cols;
+    });
+
+    // Build per-day distribution
+    let daysLoaded = 0;
+    if(!BRAND_DIST_DAY[mi]) BRAND_DIST_DAY[mi]={};
+    dateCols.forEach(({colIdx, label}, colPos)=>{
+      const dayIdx = colPos; // column 0 = Día 1 (index 0), etc.
+      if(dayIdx >= DIAS.length) return;
+      const dist = new Array(5).fill(null);
+      CORTE_HOURS.forEach((h,ci)=>{
+        if(hourData[h]) dist[ci]=[parsePctE(hourData[h][colIdx]),parsePctE(hourData[h][colIdx])];
+      });
+      if(dist.every(x=>x!==null)){
+        BRAND_DIST_DAY[mi][dayIdx]=dist;
+        daysLoaded++;
+      }
+    });
+
+    // Also store Prom as global BRAND_DIST fallback
+    if(promIdx>-1){
+      const dist=new Array(5).fill(null);
+      CORTE_HOURS.forEach((h,ci)=>{ if(hourData[h]) dist[ci]=[parsePctE(hourData[h][promIdx]),parsePctE(hourData[h][promIdx])]; });
+      if(dist.every(x=>x!==null)) BRAND_DIST[mi]=dist;
+    }
+
+    persistDistDay();
+    try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
+    // Re-trigger auto-fill for all days with a cierre objective set
+    targetDays.forEach(d=>{ [0,1].forEach(k=>{ const {obj}=getCell(d,mi,4,k); if(obj!=='') autoFillCortes(d,mi,k,obj); }); });
+    renderCortesV3();
+    document.getElementById('csvInput').value='';
+    fb.style.color='#3c7a44';
+    fb.textContent=`✓ ${brandName} — ${daysLoaded} día${daysLoaded!==1?'s':''} cargados (distribución por día)`;
+    setTimeout(()=>{ fb.textContent=''; toggleCsvPanel(); },3000);
+    return;
+  }
 
   if(isCumAcum || isCumAcumAlt){
     const brandName = lines[0].trim();
