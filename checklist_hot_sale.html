@@ -2051,7 +2051,7 @@ async function runOCRLocal(brandIdx, dayVal){
 function parseOCRMultiDay(text){
   const result = {};
   const lines = text.split(/\n/).map(l=>l.trim()).filter(l=>l);
-  const dayKw = ['lunes','martes','miércoles','miercoles','jueves','viernes','sábado','sabado','domingo'];
+  const dayKw = ['lunes','martes','miércoles','miercoles','jueves','viernes','vienes','vernes','vierens','sábado','sabado','domingo','extra'];
   let idx = 0;
   for(const line of lines){
     const l = line.toLowerCase();
