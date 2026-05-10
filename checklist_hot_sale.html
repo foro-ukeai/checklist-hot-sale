@@ -1454,6 +1454,16 @@ function fmtPct(p){ if(p===null||isNaN(p)) return '—'; return p.toFixed(0)+'%'
 function fmtGap(g){ if(g===null||isNaN(g)) return '—'; return (g>=0?'+':'')+g.toFixed(1)+'pp'; }
 function fmtNum(n,k=0){ if(isNaN(n)||n===null) return '—'; return (k===1?'$ ':'')+Math.round(n).toLocaleString('es-AR'); }
 function formatVal(val,k){ const n=parsNum(val); if(isNaN(n)||val==='') return ''; return (k===1?'$ ':'')+Math.round(n).toLocaleString('es-AR'); }
+function formatValCompact(val,k){
+  const n=parsNum(val); if(isNaN(n)||val===''||val==null) return '';
+  if(k!==1) return Math.round(n).toLocaleString('es-AR');
+  const a=Math.abs(n);
+  if(a>=1e9) return '$ '+(n/1e9).toFixed(1).replace('.',',')+'B';
+  if(a>=1e6) return '$ '+(n/1e6).toFixed(1).replace('.',',')+'M';
+  if(a>=1e5) return '$ '+Math.round(n/1e3)+'k';
+  if(a>=1e4) return '$ '+(n/1e3).toFixed(1).replace('.',',')+'k';
+  return '$ '+Math.round(n).toLocaleString('es-AR');
+}
 function unformatInput(v){ return String(v).replace(/\./g,'').replace(/[$\s]/g,'').trim(); }
 
 function autoFillCortes(d,m,k,cierreVal){
@@ -1607,19 +1617,19 @@ function v3NumCell(m,c,k){
   if(isCum){
     return `<div id="v3cell_${m}_${c}_${k}" class="v3-cell ${bk}">
       <span class="lbl-mini"><span>obj</span><span>real</span></span>
-      <span class="num obj">${formatVal(obj,k)||'—'}</span>
-      <span class="num">${formatVal(real,k)||'—'}</span>
+      <span class="num obj" title="${formatVal(obj,k)}">${formatValCompact(obj,k)||'—'}</span>
+      <span class="num" title="${formatVal(real,k)}">${formatValCompact(real,k)||'—'}</span>
       <span id="v3a_${m}_${c}_${k}" class="pct fn ${pc}">${fmtPct(p)}</span>
     </div>`;
   }
   return `<div id="v3cell_${m}_${c}_${k}" class="v3-cell ${bk}">
     <span class="lbl-mini"><span>obj</span><span>real</span></span>
     <input class="inp-obj" id="v3i_${m}_${c}_${k}_obj" data-m="${m}" data-c="${c}" data-k="${k}" data-f="obj"
-      type="text" inputmode="numeric" value="${formatVal(obj,k)}" placeholder="—"
+      type="text" inputmode="numeric" value="${formatValCompact(obj,k)}" placeholder="—" title="${formatVal(obj,k)}"
       onfocus="this.value=unformatInput(this.value)" onchange="onSave(this)" oninput="onLive(this)"
       onkeydown="if(event.key==='Enter'){onSave(this);this.blur();}">
     <input id="v3i_${m}_${c}_${k}_real" data-m="${m}" data-c="${c}" data-k="${k}" data-f="real"
-      type="text" inputmode="numeric" value="${formatVal(real,k)}" placeholder="—"
+      type="text" inputmode="numeric" value="${formatValCompact(real,k)}" placeholder="—" title="${formatVal(real,k)}"
       onfocus="this.value=unformatInput(this.value)" onchange="onSave(this)" oninput="onLive(this)"
       onkeydown="if(event.key==='Enter'){onSave(this);this.blur();}">
     <span id="v3a_${m}_${c}_${k}" class="pct fn ${pc}">${fmtPct(p)}</span>
@@ -1647,8 +1657,8 @@ function v3TotNumCell(c,k){
   const p=hO&&hR?calcPct(String(sO),String(sR)):null;
   return `<div class="v3-cell h-empty totals-cell">
     <span class="lbl-mini"><span>obj</span><span>real</span></span>
-    <span class="num obj">${hO?fmtNum(sO,k):'—'}</span>
-    <span class="num">${hR?fmtNum(sR,k):'—'}</span>
+    <span class="num obj" title="${hO?fmtNum(sO,k):''}">${hO?formatValCompact(String(sO),k):'—'}</span>
+    <span class="num" title="${hR?fmtNum(sR,k):''}">${hR?formatValCompact(String(sR),k):'—'}</span>
     <span class="pct fn ${pCls(p)}">${fmtPct(p)}</span>
   </div>`;
 }
@@ -1736,7 +1746,7 @@ function onSave(inp){
   const prev=getCell(currentDay,+m,+c,+k)[f];
   if(raw !== prev) _undoPush();
   setCell(currentDay,+m,+c,+k,f,raw);
-  inp.value=formatVal(raw,+k);
+  inp.value=formatValCompact(raw,+k);
   if(+c===4&&f==='obj') autoFillCortes(currentDay,+m,+k,raw);
   if(currentView==='cortes') renderCortesV3();
 }
