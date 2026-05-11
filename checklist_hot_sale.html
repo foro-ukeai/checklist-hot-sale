@@ -1652,10 +1652,12 @@ function renderRanking(){
     const {obj,real}=getScopedCell(m,ci,k);
     const p=calcPct(obj,real);
     const cO=parsNum(getScopedCell(m,5,k).obj);
-    const rN=parsNum(real);
-    const pClose=(!isNaN(rN)&&!isNaN(cO)&&cO>0)?rN/cO*100:null;
+    // Use last cut with real data (fallback from ci downward)
+    let ciR=ci, rNR=parsNum(real);
+    if(isNaN(rNR)){ for(let c=ci-1;c>=0;c--){ const n=parsNum(getScopedCell(m,c,k).real); if(!isNaN(n)){ciR=c;rNR=n;break;} } }
+    const pClose=(!isNaN(rNR)&&!isNaN(cO)&&cO>0)?rNR/cO*100:null;
     const dist=BRAND_DIST[m];
-    const espClose=dist&&dist[ci]?dist[ci][k]:null;
+    const espClose=dist&&dist[ciR]?dist[ciR][k]:null;
     const gap=(pClose!==null&&espClose!==null)?pClose-espClose:null;
     return {marca,p,gap};
   }).sort((a,b)=>{ if(a.p===null&&b.p===null)return 0; if(a.p===null)return 1; if(b.p===null)return -1; return a.p-b.p; });
