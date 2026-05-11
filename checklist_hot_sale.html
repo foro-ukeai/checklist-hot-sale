@@ -1445,11 +1445,14 @@ function migrateAdd18hs(){
     data=migrated;
   }catch(e){}
   try{
-    const dist=JSON.parse(localStorage.getItem('hs_dist')||'{}');
-    Object.keys(dist).forEach(m=>{ dist[m]=_migrateDistArr(dist[m]); });
-    localStorage.setItem('hs_dist',JSON.stringify(dist));
-    Object.keys(BRAND_DIST).forEach(k=>delete BRAND_DIST[k]);
-    Object.assign(BRAND_DIST,dist);
+    const rawDist=localStorage.getItem('hs_dist');
+    if(rawDist){
+      const dist=JSON.parse(rawDist);
+      Object.keys(dist).forEach(m=>{ dist[m]=_migrateDistArr(dist[m]); });
+      localStorage.setItem('hs_dist',JSON.stringify(dist));
+      Object.keys(BRAND_DIST).forEach(k=>delete BRAND_DIST[k]);
+      Object.assign(BRAND_DIST,dist);
+    }
   }catch(e){}
   try{
     const dd=JSON.parse(localStorage.getItem('hs_dist_day')||'{}');
@@ -1466,17 +1469,27 @@ let BRAND_DIST_DAY = (()=>{ try{ const s=localStorage.getItem('hs_dist_day'); re
 function persistDistDay(){ try{ localStorage.setItem('hs_dist_day',JSON.stringify(BRAND_DIST_DAY)); }catch(e){} }
 function getDistForDay(m,d){ return (BRAND_DIST_DAY[m]&&BRAND_DIST_DAY[m][d]) || BRAND_DIST[m] || null; }
 
-// Distribución histórica acumulada [TR%, Fact%] por corte — Grimoldi GA4 12–18 may 2025
-let BRAND_DIST = (()=>{ try{ const s=localStorage.getItem('hs_dist'); return s?JSON.parse(s):{
-  0: [[14.6,14.2],[31.0,30.7],[47.6,47.7],[91.4,91.3],[100,100]], // Open Sports
-  1: [[15.2,16.0],[29.3,28.6],[45.0,44.2],[92.1,91.7],[100,100]], // Trip Store
-  2: [[16.1,15.3],[33.1,32.1],[51.4,51.6],[94.3,94.6],[100,100]], // Grimoldi
-  3: [[15.8,15.2],[32.9,32.4],[48.9,48.6],[94.2,94.0],[100,100]], // Hushpuppies
-  4: [[14.5,13.9],[30.5,29.8],[45.5,46.1],[93.2,93.2],[100,100]], // Longvie
-  5: [[12.0,12.6],[27.2,27.4],[42.8,44.4],[92.8,93.3],[100,100]], // Banco Provincia
-  6: [[17.2,18.7],[35.7,38.3],[51.6,54.6],[90.7,91.3],[100,100]], // Complot
-  8: [[13.4,14.1],[29.9,30.2],[46.9,46.3],[94.2,94.6],[100,100]]  // Casa del Audio
-}; }catch(e){return {};} })();
+// Distribución histórica acumulada [TR%, Fact%] por corte — 6 cortes: 9,12,15,18,22,Cierre
+const _BRAND_DIST_SEED = {
+  0: [[14.6,14.2],[31.0,30.7],[47.6,47.7],[66.4,66.4],[91.4,91.3],[100,100]], // Open Sports
+  1: [[15.2,16.0],[29.3,28.6],[45.0,44.2],[65.2,64.6],[92.1,91.7],[100,100]], // Trip Store
+  2: [[16.1,15.3],[33.1,32.1],[51.4,51.6],[69.8,70.0],[94.3,94.6],[100,100]], // Grimoldi
+  3: [[15.8,15.2],[32.9,32.4],[48.9,48.6],[68.3,68.1],[94.2,94.0],[100,100]], // Hushpuppies
+  4: [[14.5,13.9],[30.5,29.8],[45.5,46.1],[66.0,66.3],[93.2,93.2],[100,100]], // Longvie
+  5: [[12.0,12.6],[27.2,27.4],[42.8,44.4],[64.2,65.4],[92.8,93.3],[100,100]], // Banco Provincia
+  6: [[17.2,18.7],[35.7,38.3],[51.6,54.6],[68.4,70.3],[90.7,91.3],[100,100]], // Complot
+  8: [[13.4,14.1],[29.9,30.2],[46.9,46.3],[67.2,67.0],[94.2,94.6],[100,100]]  // Casa del Audio
+};
+let BRAND_DIST = (()=>{ try{ const s=localStorage.getItem('hs_dist'); return s?JSON.parse(s):JSON.parse(JSON.stringify(_BRAND_DIST_SEED)); }catch(e){return JSON.parse(JSON.stringify(_BRAND_DIST_SEED));} })();
+function repairBrandDist(){
+  let changed=false;
+  Object.keys(_BRAND_DIST_SEED).forEach(m=>{
+    if(!BRAND_DIST[m]||!BRAND_DIST[m].length){ BRAND_DIST[m]=JSON.parse(JSON.stringify(_BRAND_DIST_SEED[m])); changed=true; }
+    else if(BRAND_DIST[m].length===5){ BRAND_DIST[m]=_migrateDistArr(BRAND_DIST[m]); changed=true; }
+  });
+  Object.keys(BRAND_DIST).forEach(m=>{ if(BRAND_DIST[m]&&BRAND_DIST[m].length===5){ BRAND_DIST[m]=_migrateDistArr(BRAND_DIST[m]); changed=true; } });
+  if(changed) try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
+}
 
 const DEFAULT_DATA = {"0":{"2":{"0":{"0":{"obj":"177","real":""},"1":{"obj":"19286614","real":""}},"1":{"0":{"obj":"364","real":""},"1":{"obj":"40464072","real":""}},"2":{"0":{"obj":"565","real":""},"1":{"obj":"65045051","real":""}},"3":{"0":{"obj":"1037","real":""},"1":{"obj":"119249260","real":""}},"4":{"0":{"obj":"1100","real":""},"1":{"obj":"126056300","real":""}}}},"1":{"2":{"0":{"0":{"obj":"161","real":""},"1":{"obj":"17290224","real":""}},"1":{"0":{"obj":"331","real":""},"1":{"obj":"36275568","real":""}},"2":{"0":{"obj":"514","real":""},"1":{"obj":"58312128","real":""}},"3":{"0":{"obj":"943","real":""},"1":{"obj":"106905568","real":""}},"4":{"0":{"obj":"1000","real":""},"1":{"obj":"113008000","real":""}}}},"2":{"2":{"0":{"0":{"obj":"242","real":""},"1":{"obj":"26202704","real":""}},"1":{"0":{"obj":"497","real":""},"1":{"obj":"54974300","real":""}},"2":{"0":{"obj":"771","real":""},"1":{"obj":"88369902","real":""}},"3":{"0":{"obj":"1415","real":""},"1":{"obj":"162011487","real":""}},"4":{"0":{"obj":"1500","real":""},"1":{"obj":"171259500","real":""}}}},"3":{"2":{"0":{"0":{"obj":"105","real":""},"1":{"obj":"11354505","real":""}},"1":{"0":{"obj":"215","real":""},"1":{"obj":"23822196","real":""}},"2":{"0":{"obj":"334","real":""},"1":{"obj":"38293624","real":""}},"3":{"0":{"obj":"613","real":""},"1":{"obj":"70204978","real":""}},"4":{"0":{"obj":"650","real":""},"1":{"obj":"74212450","real":""}}}},"4":{"2":{"0":{"0":{"obj":"322","real":""},"1":{"obj":"34936938","real":""}},"1":{"0":{"obj":"662","real":""},"1":{"obj":"73299066","real":""}},"2":{"0":{"obj":"1028","real":""},"1":{"obj":"117826536","real":""}},"3":{"0":{"obj":"1886","real":""},"1":{"obj":"216015316","real":""}},"4":{"0":{"obj":"2000","real":""},"1":{"obj":"228346000","real":""}}}},"5":{"2":{"0":{"0":{"obj":"105","real":""},"1":{"obj":"11354505","real":""}},"1":{"0":{"obj":"215","real":""},"1":{"obj":"23822196","real":""}},"2":{"0":{"obj":"334","real":""},"1":{"obj":"38293624","real":""}},"3":{"0":{"obj":"613","real":""},"1":{"obj":"70204978","real":""}},"4":{"0":{"obj":"650","real":""},"1":{"obj":"74212450","real":""}}}},"6":{"2":{"0":{"0":{"obj":"113","real":""},"1":{"obj":"12227928","real":""}},"1":{"0":{"obj":"232","real":""},"1":{"obj":"25654673","real":""}},"2":{"0":{"obj":"360","real":""},"1":{"obj":"41239288","real":""}},"3":{"0":{"obj":"660","real":""},"1":{"obj":"75605361","real":""}},"4":{"0":{"obj":"700","real":""},"1":{"obj":"79921100","real":""}}}}}
 let data = (()=>{ try{ const s=localStorage.getItem('hs_data'); if(s) return JSON.parse(s); localStorage.setItem('hs_data',JSON.stringify(DEFAULT_DATA)); return JSON.parse(JSON.stringify(DEFAULT_DATA)); }catch(e){return JSON.parse(JSON.stringify(DEFAULT_DATA));} })();
@@ -1642,7 +1655,7 @@ function renderRanking(){
     const rN=parsNum(real);
     const pClose=(!isNaN(rN)&&!isNaN(cO)&&cO>0)?rN/cO*100:null;
     const dist=BRAND_DIST[m];
-    const espClose=dist?dist[ci][k]:null;
+    const espClose=dist&&dist[ci]?dist[ci][k]:null;
     const gap=(pClose!==null&&espClose!==null)?pClose-espClose:null;
     return {marca,p,gap};
   }).sort((a,b)=>{ if(a.p===null&&b.p===null)return 0; if(a.p===null)return 1; if(b.p===null)return -1; return a.p-b.p; });
@@ -2886,7 +2899,7 @@ async function _ghPush() {
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 
-function render(){ migrateAdd18hs(); applyDynStyles(); initAutoFill(); renderDayTabs(); renderSummary(); renderSections(); renderCortesV3(); }
+function render(){ repairBrandDist(); migrateAdd18hs(); applyDynStyles(); initAutoFill(); renderDayTabs(); renderSummary(); renderSections(); renderCortesV3(); }
 render();
 </script>
 </body>
