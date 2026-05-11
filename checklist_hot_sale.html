@@ -1448,10 +1448,13 @@ function migrateAdd18hs(){
     const rawDist=localStorage.getItem('hs_dist');
     if(rawDist){
       const dist=JSON.parse(rawDist);
-      Object.keys(dist).forEach(m=>{ dist[m]=_migrateDistArr(dist[m]); });
-      localStorage.setItem('hs_dist',JSON.stringify(dist));
-      Object.keys(BRAND_DIST).forEach(k=>delete BRAND_DIST[k]);
-      Object.assign(BRAND_DIST,dist);
+      const keys=Object.keys(dist);
+      if(keys.length>0){
+        // Only migrate 5-element arrays; leave 6-element arrays untouched
+        keys.forEach(m=>{ if(Array.isArray(dist[m])&&dist[m].length===5) dist[m]=_migrateDistArr(dist[m]); });
+        localStorage.setItem('hs_dist',JSON.stringify(dist));
+        keys.forEach(m=>{ BRAND_DIST[m]=dist[m]; });
+      }
     }
   }catch(e){}
   try{
@@ -1481,11 +1484,15 @@ const _BRAND_DIST_SEED = {
   8: [[13.4,14.1],[29.9,30.2],[46.9,46.3],[67.2,67.0],[94.2,94.6],[100,100]]  // Casa del Audio
 };
 let BRAND_DIST = (()=>{ try{ const s=localStorage.getItem('hs_dist'); return s?JSON.parse(s):JSON.parse(JSON.stringify(_BRAND_DIST_SEED)); }catch(e){return JSON.parse(JSON.stringify(_BRAND_DIST_SEED));} })();
+function isValidDistArr(a){ return Array.isArray(a)&&a.length===6&&a.every(e=>Array.isArray(e)&&e.length>=2&&!isNaN(e[0])&&!isNaN(e[1])); }
 function repairBrandDist(){
   let changed=false;
   Object.keys(_BRAND_DIST_SEED).forEach(m=>{
-    if(!BRAND_DIST[m]||!BRAND_DIST[m].length){ BRAND_DIST[m]=JSON.parse(JSON.stringify(_BRAND_DIST_SEED[m])); changed=true; }
-    else if(BRAND_DIST[m].length===5){ BRAND_DIST[m]=_migrateDistArr(BRAND_DIST[m]); changed=true; }
+    if(!isValidDistArr(BRAND_DIST[m])){
+      if(Array.isArray(BRAND_DIST[m])&&BRAND_DIST[m].length===5) BRAND_DIST[m]=_migrateDistArr(BRAND_DIST[m]);
+      else BRAND_DIST[m]=JSON.parse(JSON.stringify(_BRAND_DIST_SEED[m]));
+      changed=true;
+    }
   });
   Object.keys(BRAND_DIST).forEach(m=>{ if(BRAND_DIST[m]&&BRAND_DIST[m].length===5){ BRAND_DIST[m]=_migrateDistArr(BRAND_DIST[m]); changed=true; } });
   if(changed) try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
@@ -2901,7 +2908,7 @@ async function _ghPush() {
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 
-function render(){ repairBrandDist(); migrateAdd18hs(); applyDynStyles(); initAutoFill(); renderDayTabs(); renderSummary(); renderSections(); renderCortesV3(); }
+function render(){ migrateAdd18hs(); repairBrandDist(); applyDynStyles(); initAutoFill(); renderDayTabs(); renderSummary(); renderSections(); renderCortesV3(); }
 render();
 </script>
 </body>
