@@ -1658,10 +1658,10 @@ function renderRanking(){
   const ranked=MARCAS.map((marca,m)=>{
     const {obj,real}=getScopedCell(m,ci,k);
     const p=calcPct(obj,real);
-    const cO=parsNum(getScopedCell(m,5,k).obj);
-    // Use last cut with real data (fallback from ci downward)
-    let ciR=ci, rNR=parsNum(real);
-    if(isNaN(rNR)){ for(let c=ci-1;c>=0;c--){ const n=parsNum(getScopedCell(m,c,k).real); if(!isNaN(n)){ciR=c;rNR=n;break;} } }
+    // vs ritmo: siempre usa currentDay directo, busca el último corte con real
+    let ciR=ci, rNR=parsNum(getCell(currentDay,m,ci,k).real);
+    if(isNaN(rNR)){ for(let c=ci-1;c>=0;c--){ const n=parsNum(getCell(currentDay,m,c,k).real); if(!isNaN(n)){ciR=c;rNR=n;break;} } }
+    const cO=parsNum(getCell(currentDay,m,5,k).obj);
     const pClose=(!isNaN(rNR)&&!isNaN(cO)&&cO>0)?rNR/cO*100:null;
     const dist=isValidDistArr(BRAND_DIST[m])?BRAND_DIST[m]:(_BRAND_DIST_SEED[m]||null);
     const espClose=dist&&dist[ciR]?dist[ciR][k]:null;
