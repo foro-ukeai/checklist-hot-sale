@@ -563,7 +563,7 @@
   /* Grid */
   .v3-grid {
     display: grid;
-    grid-template-columns: 130px repeat(5, 1fr);
+    grid-template-columns: 130px repeat(6, 1fr);
     border-top: 0.5px solid rgba(0,0,0,0.08);
     overflow-x: auto;
   }
@@ -1411,8 +1411,55 @@ function persistMarcaDias(){ try{ localStorage.setItem('hs_marca_dias',JSON.stri
 function getMarcaDias(m){ return MARCA_DIAS_CONFIG[m] || 7; }
 function getMaxDias(){ return MARCAS.length ? Math.max(...MARCAS.map((_,i)=>getMarcaDias(i))) : 7; }
 function isBrandActive(m){ return currentDay < getMarcaDias(m); }
-const CORTES = ['9hs','12hs','15hs','22hs','Cierre'];
-const STAGES = ['mañana','mediodía','tarde','noche','cierre día'];
+const CORTES = ['9hs','12hs','15hs','18hs','22hs','Cierre'];
+const STAGES = ['mañana','mediodía','tarde','tarde-noche','noche','cierre día'];
+
+// ── Migración única: agrega índice 3 (18hs), shift 3→4, 4→5 ──
+function _migrateObj(d){
+  const r={};
+  Object.keys(d).forEach(day=>{ r[day]={};
+    Object.keys(d[day]||{}).forEach(brand=>{ r[day][brand]={};
+      Object.keys(d[day][brand]||{}).forEach(corte=>{
+        const ci=parseInt(corte);
+        r[day][brand][ci>=3?ci+1:ci]=d[day][brand][corte];
+      });
+    });
+  });
+  return r;
+}
+function _migrateDistArr(arr){
+  if(!arr||arr.length!==5) return arr;
+  const p15=arr[2],p22=arr[3];
+  const p18=[
+    Math.round((p15[0]+(p22[0]-p15[0])*(3/7))*10)/10,
+    Math.round((p15[1]+(p22[1]-p15[1])*(3/7))*10)/10
+  ];
+  return [arr[0],arr[1],arr[2],p18,arr[3],arr[4]];
+}
+function migrateAdd18hs(){
+  if(localStorage.getItem('hs_migrated_18hs')) return;
+  try{
+    const raw=localStorage.getItem('hs_data');
+    const migrated=_migrateObj(raw?JSON.parse(raw):JSON.parse(JSON.stringify(DEFAULT_DATA)));
+    localStorage.setItem('hs_data',JSON.stringify(migrated));
+    data=migrated;
+  }catch(e){}
+  try{
+    const dist=JSON.parse(localStorage.getItem('hs_dist')||'{}');
+    Object.keys(dist).forEach(m=>{ dist[m]=_migrateDistArr(dist[m]); });
+    localStorage.setItem('hs_dist',JSON.stringify(dist));
+    Object.keys(BRAND_DIST).forEach(k=>delete BRAND_DIST[k]);
+    Object.assign(BRAND_DIST,dist);
+  }catch(e){}
+  try{
+    const dd=JSON.parse(localStorage.getItem('hs_dist_day')||'{}');
+    Object.keys(dd).forEach(m=>Object.keys(dd[m]||{}).forEach(d=>{ dd[m][d]=_migrateDistArr(dd[m][d]); }));
+    localStorage.setItem('hs_dist_day',JSON.stringify(dd));
+    Object.keys(BRAND_DIST_DAY).forEach(k=>delete BRAND_DIST_DAY[k]);
+    Object.assign(BRAND_DIST_DAY,dd);
+  }catch(e){}
+  localStorage.setItem('hs_migrated_18hs','1');
+}
 
 // Distribución por día: BRAND_DIST_DAY[marca][dia] = [[TR%,Fact%] x5 cortes]
 let BRAND_DIST_DAY = (()=>{ try{ const s=localStorage.getItem('hs_dist_day'); return s?JSON.parse(s):{}; }catch(e){return {};} })();
@@ -1470,13 +1517,13 @@ function autoFillCortes(d,m,k,cierreVal){
   const dist=getDistForDay(m,d); if(!dist) return;
   const base=parsNum(String(cierreVal));
   if(isNaN(base)||base===0||String(cierreVal).trim()===''){
-    for(let c=0;c<4;c++) setCell(d,m,c,k,'obj','');
+    for(let c=0;c<5;c++) setCell(d,m,c,k,'obj','');
     return;
   }
-  for(let c=0;c<4;c++) setCell(d,m,c,k,'obj',String(Math.round(base*dist[c][k]/100)));
+  for(let c=0;c<5;c++) setCell(d,m,c,k,'obj',String(Math.round(base*dist[c][k]/100)));
 }
 function initAutoFill(){
-  for(let d=0;d<DIAS.length;d++) MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(d,m,4,k); if(obj!=='') autoFillCortes(d,m,k,obj); }));
+  for(let d=0;d<DIAS.length;d++) MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(d,m,5,k); if(obj!=='') autoFillCortes(d,m,k,obj); }));
 }
 
 /* ── V3 state controls ── */
@@ -1501,7 +1548,7 @@ function setScopeMode(s){
 function _getBestVal(d,m,k){
   // Returns {obj, real} = latest non-empty value scanning from Cierre down to 9hs
   let obj='', real='';
-  for(let cc=4;cc>=0;cc--){
+  for(let cc=5;cc>=0;cc--){
     const cell=getCell(d,m,cc,k);
     if(obj===''&&cell.obj!=='') obj=cell.obj;
     if(real===''&&cell.real!=='') real=cell.real;
@@ -1514,7 +1561,7 @@ function getScopedCell(m,c,k){
   const maxDay = Math.min(currentDay, getMarcaDias(m)-1);
   let sO=0,sR=0,hO=false,hR=false;
   for(let d=0;d<=maxDay;d++){
-    const {obj,real} = c===4 ? _getBestVal(d,m,k) : getCell(d,m,c,k);
+    const {obj,real} = c===5 ? _getBestVal(d,m,k) : getCell(d,m,c,k);
     const o=parsNum(obj),r=parsNum(real);
     if(!isNaN(o)){sO+=o;hO=true;} if(!isNaN(r)){sR+=r;hR=true;}
   }
@@ -1551,7 +1598,7 @@ function renderKpiStrip(){
   const p1=hO&&hR?calcPct(String(sO),String(sR)):null, c1=pCls(p1);
 
   let rPS=0,ePS=0,rN=0,eN=0;
-  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const cO=parsNum(getScopedCell(m,4,k).obj); if(isNaN(cO)||cO===0) return; const {obj,real}=getScopedCell(m,ci,k); const oN=parsNum(obj),rN2=parsNum(real); if(!isNaN(oN)){ePS+=oN/cO*100;eN++;} if(!isNaN(rN2)){rPS+=rN2/cO*100;rN++;} });
+  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const cO=parsNum(getScopedCell(m,5,k).obj); if(isNaN(cO)||cO===0) return; const {obj,real}=getScopedCell(m,ci,k); const oN=parsNum(obj),rN2=parsNum(real); if(!isNaN(oN)){ePS+=oN/cO*100;eN++;} if(!isNaN(rN2)){rPS+=rN2/cO*100;rN++;} });
   const espA=eN>0?ePS/eN:null, realA=rN>0?rPS/rN:null, gp=(espA!==null&&realA!==null)?realA-espA:null;
 
   let above=0, below=0;
@@ -1591,7 +1638,7 @@ function renderRanking(){
   const ranked=MARCAS.map((marca,m)=>{
     const {obj,real}=getScopedCell(m,ci,k);
     const p=calcPct(obj,real);
-    const cO=parsNum(getScopedCell(m,4,k).obj);
+    const cO=parsNum(getScopedCell(m,5,k).obj);
     const rN=parsNum(real);
     const pClose=(!isNaN(rN)&&!isNaN(cO)&&cO>0)?rN/cO*100:null;
     const dist=BRAND_DIST[m];
@@ -1637,7 +1684,7 @@ function v3NumCell(m,c,k){
 }
 
 function v3PctCell(m,c,k){
-  const cO=parsNum(getCell(currentDay,m,4,k).obj);
+  const cO=parsNum(getCell(currentDay,m,5,k).obj);
   const {obj,real}=getCell(currentDay,m,c,k);
   const oN=parsNum(obj),rN=parsNum(real);
   const espP=(!isNaN(cO)&&cO>0&&!isNaN(oN))?oN/cO*100:null;
@@ -1665,7 +1712,7 @@ function v3TotNumCell(c,k){
 
 function v3TotPctCell(c,k){
   let eS=0,rS=0,eN=0,rN=0;
-  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const cO=parsNum(getCell(currentDay,m,4,k).obj); if(isNaN(cO)||cO===0) return; const {obj,real}=getCell(currentDay,m,c,k); const oN=parsNum(obj),rN2=parsNum(real); if(!isNaN(oN)){eS+=oN/cO*100;eN++;} if(!isNaN(rN2)){rS+=rN2/cO*100;rN++;} });
+  MARCAS.forEach((_,m)=>{ if(!isBrandActive(m)) return; const cO=parsNum(getCell(currentDay,m,5,k).obj); if(isNaN(cO)||cO===0) return; const {obj,real}=getCell(currentDay,m,c,k); const oN=parsNum(obj),rN2=parsNum(real); if(!isNaN(oN)){eS+=oN/cO*100;eN++;} if(!isNaN(rN2)){rS+=rN2/cO*100;rN++;} });
   const espA=eN>0?eS/eN:null, realA=rN>0?rS/rN:null, gap=(espA!==null&&realA!==null)?realA-espA:null;
   return `<div class="v3-cell h-empty totals-cell">
     <span class="lbl-mini"><span>esp</span><span>real</span></span>
@@ -1747,7 +1794,7 @@ function onSave(inp){
   if(raw !== prev) _undoPush();
   setCell(currentDay,+m,+c,+k,f,raw);
   inp.value=formatValCompact(raw,+k);
-  if(+c===4&&f==='obj') autoFillCortes(currentDay,+m,+k,raw);
+  if(+c===5&&f==='obj') autoFillCortes(currentDay,+m,+k,raw);
   if(currentView==='cortes') renderCortesV3();
 }
 function onLive(inp){
@@ -2124,7 +2171,7 @@ function parseOCRHourTable(text){
   }
   if(!Object.keys(rows).length) return null; // not this format
   // Accumulate hour 0..N for each corte
-  const CORTE_HOURS = [9, 12, 15, 22, 23]; // indices 0-4
+  const CORTE_HOURS = [9, 12, 15, 18, 22, 23]; // indices 0-5
   const result = {};
   CORTE_HOURS.forEach((targetHour, i) => {
     let totalTr = 0, totalFact = 0, hasData = false;
@@ -2339,7 +2386,7 @@ function importCSV(){
     const hdrCols = secondLineCols0; // already lowercased
     const parsePctE = s => parseFloat(String(s||'').replace('%','').replace(',','.').trim())||0;
     const parseHourE = s => { const m=String(s).trim().match(/^(\d{1,2})/); return m?parseInt(m[1],10):-1; };
-    const CORTE_HOURS = [9,12,15,22,23]; // → corte indices 0..4
+    const CORTE_HOURS = [9,12,15,18,22,23]; // → corte indices 0..5
 
     // Detect date columns (skip "hora" and "prom"/"-" separators)
     const dateCols = []; // [{colIdx, dayLabel}]
@@ -2386,7 +2433,7 @@ function importCSV(){
     persistDistDay();
     try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
     // Re-trigger auto-fill for all days with a cierre objective set
-    targetDays.forEach(d=>{ [0,1].forEach(k=>{ const {obj}=getCell(d,mi,4,k); if(obj!=='') autoFillCortes(d,mi,k,obj); }); });
+    targetDays.forEach(d=>{ [0,1].forEach(k=>{ const {obj}=getCell(d,mi,5,k); if(obj!=='') autoFillCortes(d,mi,k,obj); }); });
     renderCortesV3();
     document.getElementById('csvInput').value='';
     fb.style.color='#3c7a44';
@@ -2438,7 +2485,7 @@ function importCSV(){
       };
     });
 
-    const CORTE_HOURS_MAP = [[9,0],[12,1],[15,2],[22,3],[23,4]];
+    const CORTE_HOURS_MAP = [[9,0],[12,1],[15,2],[18,3],[22,4],[23,5]];
     if(_csvMode==='real'){
       // Sum Rev/hora up to each corte hour for facturación
       CORTE_HOURS_MAP.forEach(([maxH,ci])=>{
@@ -2457,7 +2504,7 @@ function importCSV(){
       if(dist.every(x=>x!==null)){
         BRAND_DIST[mi]=dist;
         try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
-        targetDays.forEach(d=>{ [0,1].forEach(k=>{ const {obj}=getCell(d,mi,4,k); if(obj!=='') autoFillCortes(d,mi,k,obj); }); });
+        targetDays.forEach(d=>{ [0,1].forEach(k=>{ const {obj}=getCell(d,mi,5,k); if(obj!=='') autoFillCortes(d,mi,k,obj); }); });
         fb.style.color='#3c7a44';
         fb.textContent=`✓ ${brandName} — distribución cargada (objetivos)`;
       } else {
@@ -2516,7 +2563,7 @@ function importCSV(){
       if(isNaN(hour)||hour<0||hour>23) return;
       rows2[hour]={tr:parseN(cols[trIdx2]), fact:parseN(cols[factIdx2])};
     });
-    const CORTE_HOURS=[9,12,15,22,23];
+    const CORTE_HOURS=[9,12,15,18,22,23];
     const field2=_csvMode==='real'?'real':'obj';
     CORTE_HOURS.forEach((maxH,ci)=>{
       let totalTr=0,totalFact=0;
@@ -2524,7 +2571,7 @@ function importCSV(){
       if(totalTr)   _sc(mi,ci,0,field2,String(totalTr));
       if(totalFact) _sc(mi,ci,1,field2,String(totalFact));
     });
-    if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDays[0],m,4,k); if(obj!=='') _ac(m,k,obj); }));
+    if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDays[0],m,5,k); if(obj!=='') _ac(m,k,obj); }));
     renderCortesV3();
     document.getElementById('csvInput').value='';
     fb.style.color='#3c7a44';
@@ -2556,7 +2603,7 @@ function importCSV(){
       dataLines=lines;
       brandIdx=0; horaIdx=1; factPctIdx=2; transPctIdx=3;
     }
-    const HOUR_MAP={'09hs':0,'9hs':0,'12hs':1,'15hs':2,'22hs':3,'23hs':4,'cierre':4};
+    const HOUR_MAP={'09hs':0,'9hs':0,'12hs':1,'15hs':2,'18hs':3,'22hs':4,'23hs':5,'cierre':5};
     const parsePct=s=>parseFloat(String(s).replace('%','').trim())||0;
     function matchBrand(name){
       const n=name.toLowerCase().trim();
@@ -2622,7 +2669,7 @@ function importCSV(){
     });
     if(_csvMode==='obj'){
       try{localStorage.setItem('hs_dist',JSON.stringify(BRAND_DIST));}catch(e){}
-      MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDays[0],m,4,k); if(obj!=='') _ac(m,k,obj); }));
+      MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDays[0],m,5,k); if(obj!=='') _ac(m,k,obj); }));
     }
     renderCortesV3();
     const fb=document.getElementById('csvFeedback');
@@ -2657,7 +2704,7 @@ function importCSV(){
     Object.entries(colMap).forEach(([ci,{c,k}])=>{ const val=cols[+ci]; if(val!==undefined&&val!=='') _sc(mi,c,k,csvField,val); });
     loaded++;
   });
-  if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDays[0],m,4,k); if(obj!=='') _ac(m,k,obj); }));
+  if(_csvMode==='obj') MARCAS.forEach((_,m)=>[0,1].forEach(k=>{ const {obj}=getCell(targetDays[0],m,5,k); if(obj!=='') _ac(m,k,obj); }));
   renderCortesV3();
   document.getElementById('csvInput').value='';
   toggleCsvPanel();
@@ -2715,8 +2762,8 @@ function downloadHTML(src){
   const FC=[182709958,177264576,181783085,69283802,92687360,92919078,43447200];
   const m=0;
   TR.forEach((tr,d)=>{
-    if(getCell(d,m,4,0).obj==='') setCell(d,m,4,0,'obj',String(tr));
-    if(getCell(d,m,4,1).obj==='') setCell(d,m,4,1,'obj',String(FC[d]));
+    if(getCell(d,m,5,0).obj==='') setCell(d,m,5,0,'obj',String(tr));
+    if(getCell(d,m,5,1).obj==='') setCell(d,m,5,1,'obj',String(FC[d]));
   });
   localStorage.setItem('hs_init_os_v1','1');
 })();
@@ -2728,8 +2775,8 @@ function downloadHTML(src){
   const FC=[69000000,69000000,94300000,47150000,55200000,34500000,40250000];
   const m=3;
   TR.forEach((tr,d)=>{
-    if(getCell(d,m,4,0).obj==='') setCell(d,m,4,0,'obj',String(tr));
-    if(getCell(d,m,4,1).obj==='') setCell(d,m,4,1,'obj',String(FC[d]));
+    if(getCell(d,m,5,0).obj==='') setCell(d,m,5,0,'obj',String(tr));
+    if(getCell(d,m,5,1).obj==='') setCell(d,m,5,1,'obj',String(FC[d]));
   });
   localStorage.setItem('hs_init_hush_v1','1');
 })();
@@ -2741,8 +2788,8 @@ function downloadHTML(src){
   const FC=[52835181,51246153,52570343,19995269,26748638,26881057,12579805];
   const m=1;
   TR.forEach((tr,d)=>{
-    if(getCell(d,m,4,0).obj==='') setCell(d,m,4,0,'obj',String(tr));
-    if(getCell(d,m,4,1).obj==='') setCell(d,m,4,1,'obj',String(FC[d]));
+    if(getCell(d,m,5,0).obj==='') setCell(d,m,5,0,'obj',String(tr));
+    if(getCell(d,m,5,1).obj==='') setCell(d,m,5,1,'obj',String(FC[d]));
   });
   localStorage.setItem('hs_init_trip_v1','1');
 })();
@@ -2839,7 +2886,7 @@ async function _ghPush() {
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 
-function render(){ applyDynStyles(); initAutoFill(); renderDayTabs(); renderSummary(); renderSections(); renderCortesV3(); }
+function render(){ migrateAdd18hs(); applyDynStyles(); initAutoFill(); renderDayTabs(); renderSummary(); renderSections(); renderCortesV3(); }
 render();
 </script>
 </body>
