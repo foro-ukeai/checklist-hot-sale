@@ -949,8 +949,9 @@
               <option value="0">9hs</option>
               <option value="1">12hs</option>
               <option value="2">15hs</option>
-              <option value="3">22hs</option>
-              <option value="4">Cierre</option>
+              <option value="3">18hs</option>
+              <option value="4">22hs</option>
+              <option value="5">Cierre</option>
             </select>
           </div>
         </div>
@@ -2100,7 +2101,7 @@ function loadTesseract(){
   });
 }
 
-const _CLABELS = ['9hs','12hs','15hs','22hs','Cierre'];
+const _CLABELS = ['9hs','12hs','15hs','18hs','22hs','Cierre'];
 
 async function runOCRLocal(brandIdx, dayVal){
   setImportStatus('loading','⏳ Cargando motor OCR…');
@@ -2265,7 +2266,7 @@ function showOCRForm(rawText, brandIdx, dayVal, corteVal){
     `<pre class="ocr-raw-pre">${rawText.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</pre>`;
   rawDiv.style.display = '';
 
-  const corteRows = singleC !== null ? [singleC] : [0,1,2,3,4];
+  const corteRows = singleC !== null ? [singleC] : [0,1,2,3,4,5];
 
   if(!multiDay){
     const parsed = parseOCRText(rawText);
