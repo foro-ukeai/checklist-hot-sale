@@ -2278,7 +2278,7 @@ function showOCRForm(rawText, brandIdx, dayVal, corteVal){
     // pisar cortes anteriores ya cargados.
     if(singleC === null){
       const populated = [0,1,2,3,4,5].filter(c => { const d=parsed['c'+c]; return d&&(d.tr!=null||d.fact!=null); });
-      if(populated.length > 2) corteRows = [populated[populated.length-1]];
+      if(populated.length > 1) corteRows = [populated[populated.length-1]];
     }
 
     // Fallback: if a specific corte was selected but not found via time labels,
