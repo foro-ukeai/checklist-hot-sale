@@ -1663,7 +1663,7 @@ function renderRanking(){
     let ciR=ci, rNR=parsNum(real);
     if(isNaN(rNR)){ for(let c=ci-1;c>=0;c--){ const n=parsNum(getScopedCell(m,c,k).real); if(!isNaN(n)){ciR=c;rNR=n;break;} } }
     const pClose=(!isNaN(rNR)&&!isNaN(cO)&&cO>0)?rNR/cO*100:null;
-    const dist=BRAND_DIST[m];
+    const dist=isValidDistArr(BRAND_DIST[m])?BRAND_DIST[m]:(_BRAND_DIST_SEED[m]||null);
     const espClose=dist&&dist[ciR]?dist[ciR][k]:null;
     const gap=(pClose!==null&&espClose!==null)?pClose-espClose:null;
     return {marca,p,gap};
