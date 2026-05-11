@@ -2220,8 +2220,9 @@ function parseOCRText(text){
     {re:/\b9\s*[h:]/i, key:'c0'},
     {re:/\b12\s*[h:]/i, key:'c1'},
     {re:/\b15\s*[h:]/i, key:'c2'},
-    {re:/\b22\s*[h:]/i, key:'c3'},
-    {re:/cierre|fin\b|close|total/i, key:'c4'},
+    {re:/\b18\s*[h:]/i, key:'c3'},
+    {re:/\b22\s*[h:]/i, key:'c4'},
+    {re:/cierre|fin\b|close|total/i, key:'c5'},
   ];
   function extractNums(line){
     return [...line.matchAll(/\d[\d.,]*/g)]
