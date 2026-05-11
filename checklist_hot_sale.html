@@ -2268,10 +2268,18 @@ function showOCRForm(rawText, brandIdx, dayVal, corteVal){
     `<pre class="ocr-raw-pre">${rawText.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</pre>`;
   rawDiv.style.display = '';
 
-  const corteRows = singleC !== null ? [singleC] : [0,1,2,3,4,5];
+  let corteRows = singleC !== null ? [singleC] : [0,1,2,3,4,5];
 
   if(!multiDay){
     const parsed = parseOCRText(rawText);
+
+    // Si "Todos" seleccionado pero el parser de tabla horaria encontró datos para
+    // muchos cortes (acumulado por hora), limitar solo al último corte para evitar
+    // pisar cortes anteriores ya cargados.
+    if(singleC === null){
+      const populated = [0,1,2,3,4,5].filter(c => { const d=parsed['c'+c]; return d&&(d.tr!=null||d.fact!=null); });
+      if(populated.length > 2) corteRows = [populated[populated.length-1]];
+    }
 
     // Fallback: if a specific corte was selected but not found via time labels,
     // extract $ amount + nearby count directly from the full text
