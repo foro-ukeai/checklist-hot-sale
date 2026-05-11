@@ -1657,23 +1657,24 @@ function renderKpiStrip(){
 function renderRanking(){
   const k=cortesK, ci=getActiveCut();
   const ranked=MARCAS.map((marca,m)=>{
-    const {obj,real}=getScopedCell(m,ci,k);
-    const p=calcPct(obj,real);
-    // vs ritmo: siempre usa currentDay directo, busca el último corte con real
+    // Busca el último corte con real disponible para este día
     let ciR=ci, rNR=parsNum(getCell(currentDay,m,ci,k).real);
     if(isNaN(rNR)){ for(let c=ci-1;c>=0;c--){ const n=parsNum(getCell(currentDay,m,c,k).real); if(!isNaN(n)){ciR=c;rNR=n;break;} } }
+    // pct: real del mejor corte disponible vs su objetivo parcial
+    const {obj:objR}=getCell(currentDay,m,ciR,k);
+    const p=isNaN(rNR)?null:calcPct(objR,String(rNR));
     const cO=parsNum(getCell(currentDay,m,5,k).obj);
     const pClose=(!isNaN(rNR)&&!isNaN(cO)&&cO>0)?rNR/cO*100:null;
     const dist=isValidDistArr(BRAND_DIST[m])?BRAND_DIST[m]:(_BRAND_DIST_SEED[m]||null);
     const espClose=dist&&dist[ciR]?dist[ciR][k]:null;
     const gap=(pClose!==null&&espClose!==null)?pClose-espClose:null;
-    return {marca,p,gap};
+    return {marca,p,gap,ciR};
   }).sort((a,b)=>{ if(a.p===null&&b.p===null)return 0; if(a.p===null)return 1; if(b.p===null)return -1; return a.p-b.p; });
 
   document.getElementById('rankTitle').textContent=`Ranking · ${CORTES[ci]}`;
   document.getElementById('rankList').innerHTML=ranked.map((r,i)=>`
     <div class="v3-rank-row">
-      <div class="name">${r.marca}<span class="sub">vs ritmo ${r.gap!==null?fmtGap(r.gap):'—'}</span></div>
+      <div class="name">${r.marca}<span class="sub">${CORTES[r.ciR]} · vs ritmo ${r.gap!==null?fmtGap(r.gap):'—'}</span></div>
       <span class="gap-mini">${i+1}</span>
       <span class="pct fn ${pCls(r.p)}">${fmtPct(r.p)}</span>
     </div>`).join('');
