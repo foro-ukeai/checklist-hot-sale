@@ -2843,6 +2843,8 @@ const _lsOrig = Storage.prototype.setItem;
 Storage.prototype.setItem = function(key, value) {
   _lsOrig.call(this, key, value);
   if(_ghReady && this === localStorage && key.startsWith('hs_') && key !== 'hs_sync_ts') {
+    // Marcar local como más nuevo de inmediato para que el poll no pise durante el debounce
+    _lsOrig.call(localStorage, 'hs_sync_ts', String(Date.now()));
     _ghDebouncedSave();
   }
 };
