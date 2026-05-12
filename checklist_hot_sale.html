@@ -1655,24 +1655,20 @@ function renderKpiStrip(){
 
 /* ── Ranking ── */
 function renderRanking(){
-  const k=cortesK, ci=getActiveCut(), isCum=cortesScope==='cum';
+  const k=cortesK, ci=getActiveCut();
+  // Ranking siempre acumulado (D1 → día actual)
   const ranked=MARCAS.map((marca,m)=>{
-    let rNR=NaN, objCi='', objClose='';
-    if(isCum){
-      const maxDay=Math.min(currentDay,getMarcaDias(m)-1);
-      let cumReal=0,hR=false,cumObjCi=0,hOCi=false,cumObjClose=0,hOClose=false;
-      for(let d=0;d<=maxDay;d++){
-        const {real:rBest}=_getBestVal(d,m,k);
-        const rV=parsNum(rBest); if(!isNaN(rV)){cumReal+=rV;hR=true;}
-        const {obj:oCi}=getCell(d,m,ci,k); const oV=parsNum(oCi); if(!isNaN(oV)){cumObjCi+=oV;hOCi=true;}
-        const {obj:oC}=getCell(d,m,5,k); const oCv=parsNum(oC); if(!isNaN(oCv)){cumObjClose+=oCv;hOClose=true;}
-      }
-      rNR=hR?cumReal:NaN; objCi=hOCi?String(cumObjCi):''; objClose=hOClose?String(cumObjClose):'';
-    } else {
-      let ciR=ci; rNR=parsNum(getCell(currentDay,m,ci,k).real);
-      if(isNaN(rNR)){ for(let c=ci-1;c>=0;c--){ const n=parsNum(getCell(currentDay,m,c,k).real); if(!isNaN(n)){ciR=c;rNR=n;break;} } }
-      objCi=getCell(currentDay,m,ciR,k).obj; objClose=getCell(currentDay,m,5,k).obj;
+    const maxDay=Math.min(currentDay,getMarcaDias(m)-1);
+    let cumReal=0,hR=false,cumObjCi=0,hOCi=false,cumObjClose=0,hOClose=false;
+    for(let d=0;d<=maxDay;d++){
+      const {real:rBest}=_getBestVal(d,m,k);
+      const rV=parsNum(rBest); if(!isNaN(rV)){cumReal+=rV;hR=true;}
+      const {obj:oCi}=getCell(d,m,ci,k); const oV=parsNum(oCi); if(!isNaN(oV)){cumObjCi+=oV;hOCi=true;}
+      const {obj:oC}=getCell(d,m,5,k); const oCv=parsNum(oC); if(!isNaN(oCv)){cumObjClose+=oCv;hOClose=true;}
     }
+    const rNR=hR?cumReal:NaN;
+    const objCi=hOCi?String(cumObjCi):'';
+    const objClose=hOClose?String(cumObjClose):'';
     const p=(!isNaN(rNR)&&objCi!=='')?calcPct(objCi,String(rNR)):null;
     const cO=parsNum(objClose);
     const pClose=(!isNaN(rNR)&&!isNaN(cO)&&cO>0)?rNR/cO*100:null;
@@ -1682,7 +1678,7 @@ function renderRanking(){
     return {marca,p,gap};
   }).sort((a,b)=>{ if(a.p===null&&b.p===null)return 0; if(a.p===null)return 1; if(b.p===null)return -1; return a.p-b.p; });
 
-  const scopeLbl=isCum?(currentDay>0?`D1→${DIAS[currentDay].replace('Día ','')}`:DIAS[0]):DIAS[currentDay];
+  const scopeLbl=currentDay>0?`D1→${DIAS[currentDay].replace('Día ','')}`:DIAS[0];
   document.getElementById('rankTitle').textContent=`Ranking · ${scopeLbl} · ${CORTES[ci]}`;
   document.getElementById('rankList').innerHTML=ranked.map((r,i)=>`
     <div class="v3-rank-row">
