@@ -544,10 +544,11 @@
   .v3-rank-row .name .sub { font-size: 10px; color: #8a8a82; font-weight: 400; display: block; margin-top: 1px; }
   .v3-rank-row .gap-mini { font-family: 'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace; font-size: 10px; color: #b5b4ad; }
   .v3-rank-row .pct { font-family: 'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace; font-size: 12px; font-weight: 600; min-width: 38px; text-align: right; }
-  .v3-rank-row .pct.green { color: #4d8a1c; }
-  .v3-rank-row .pct.amber { color: #c2820f; }
-  .v3-rank-row .pct.red   { color: #c93838; }
-  .v3-rank-row .pct.empty { color: #b5b4ad; }
+  .v3-rank-row .pct.green   { color: #4d8a1c; }
+  .v3-rank-row .pct.amber   { color: #c2820f; }
+  .v3-rank-row .pct.red     { color: #c93838; }
+  .v3-rank-row .pct.darkred { color: #8c1a1a; font-weight: 700; }
+  .v3-rank-row .pct.empty   { color: #b5b4ad; }
 
   /* ── Heatmap ── */
   .v3-heat { background: #fff; border: 0.5px solid rgba(0,0,0,0.08); border-radius: 14px; overflow: hidden; min-width: 0; }
@@ -589,10 +590,11 @@
   }
   .v3-grid > .brand:hover { background: #fbfbfa; }
   .v3-grid > .brand .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-  .v3-grid > .brand .dot.green { background: #4d8a1c; }
-  .v3-grid > .brand .dot.amber { background: #c2820f; }
-  .v3-grid > .brand .dot.red   { background: #c93838; }
-  .v3-grid > .brand .dot.empty { background: #b5b4ad; opacity: 0.4; }
+  .v3-grid > .brand .dot.green   { background: #4d8a1c; }
+  .v3-grid > .brand .dot.amber   { background: #c2820f; }
+  .v3-grid > .brand .dot.red     { background: #c93838; }
+  .v3-grid > .brand .dot.darkred { background: #8c1a1a; }
+  .v3-grid > .brand .dot.empty   { background: #b5b4ad; opacity: 0.4; }
 
   .v3-grid > .totals {
     background: #f5f5f3; padding: 9px 10px 9px 14px;
@@ -657,10 +659,11 @@
     text-align: center; padding: 2px 0; border-radius: 4px;
     background: rgba(255,255,255,0.6); width: 100%;
   }
-  .v3-cell .pct.green { color: #4d8a1c; }
-  .v3-cell .pct.amber { color: #c2820f; }
-  .v3-cell .pct.red   { color: #c93838; }
-  .v3-cell .pct.empty { color: #b5b4ad; background: transparent; }
+  .v3-cell .pct.green   { color: #4d8a1c; }
+  .v3-cell .pct.amber   { color: #c2820f; }
+  .v3-cell .pct.red     { color: #c93838; }
+  .v3-cell .pct.darkred { color: #8c1a1a; font-weight: 700; }
+  .v3-cell .pct.empty   { color: #b5b4ad; background: transparent; }
   /* ════════════════════════════════════════
      UKELELE BRAND OVERRIDE — PREVIEW
   ════════════════════════════════════════ */
@@ -1602,7 +1605,7 @@ function gapBucket(g){
   if(g>=-3) return 'h-a0'; if(g>=-7) return 'h-a1';
   if(g>=-12) return 'h-r0'; if(g>=-20) return 'h-r1'; return 'h-r2';
 }
-function pCls(p){ if(p===null||isNaN(p)) return 'empty'; if(p>=100) return 'green'; if(p>=90) return 'amber'; return 'red'; }
+function pCls(p){ if(p===null||isNaN(p)) return 'empty'; if(p>=100) return 'green'; if(p>=90) return 'amber'; if(p>=70) return 'red'; return 'darkred'; }
 function gCls(g){ if(g===null||isNaN(g)) return 'empty'; if(g>=0) return 'green'; if(g>=-5) return 'amber'; return 'red'; }
 
 /* ── active cut detection ── */
