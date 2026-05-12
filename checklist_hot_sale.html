@@ -1784,19 +1784,20 @@ function renderHeatGrid(){
   CORTES.forEach((_,c)=>{ html+=isPct?v3TotPctCell(c,k):v3TotNumCell(c,k); });
 
   // Save focused input state before destroying the grid
+  // Skip if this is the input being saved (its value was already formatted by onSave)
   const _ae = document.activeElement;
-  const _aeId  = (_ae && _ae.dataset && _ae.dataset.m !== undefined && _ae.closest && _ae.closest('#heatGrid')) ? _ae.id : null;
-  const _aeRaw = _aeId ? parsNum(unformatInput(_ae.value)) : NaN; // numeric value user has typed
+  const _aeInGrid = _ae && _ae.dataset && _ae.dataset.m !== undefined && _ae.closest && _ae.closest('#heatGrid');
+  const _aeId  = (_aeInGrid && _ae.id !== _savingId) ? _ae.id : null;
+  const _aeRaw = _aeId ? parsNum(unformatInput(_ae.value)) : NaN;
 
   document.getElementById('heatGrid').innerHTML=html;
 
-  // Restore focus + typed value after rebuild (prevents unsaved values in other cells from disappearing)
+  // Restore focus + typed value in OTHER cells after rebuild
   if(_aeId){
     const _restored = document.getElementById(_aeId);
     if(_restored){
       const {m:_m,c:_c,k:_k,f:_f} = _restored.dataset;
       const _saved = parsNum(getCell(currentDay,+_m,+_c,+_k)[_f]);
-      // If user had typed a different number, restore it; otherwise show saved raw value
       if(!isNaN(_aeRaw) && _aeRaw !== _saved)
         _restored.value = String(_aeRaw);
       _restored.focus();
@@ -1840,6 +1841,8 @@ function renderCortesV3(){
 }
 
 /* ── Save / live ── */
+let _savingId = null; // ID of the input currently being saved — excluded from focus-restore
+
 function onSave(inp){
   const {m,c,k,f}=inp.dataset;
   const raw=unformatInput(inp.value);
@@ -1848,7 +1851,7 @@ function onSave(inp){
   setCell(currentDay,+m,+c,+k,f,raw);
   inp.value=formatValCompact(raw,+k);
   if(+c===5&&f==='obj') autoFillCortes(currentDay,+m,+k,raw);
-  if(currentView==='cortes') renderCortesV3();
+  if(currentView==='cortes'){ _savingId=inp.id; renderCortesV3(); _savingId=null; }
 }
 function onLive(inp){
   const {m,c,k,f}=inp.dataset, saved=getCell(currentDay,+m,+c,+k);
