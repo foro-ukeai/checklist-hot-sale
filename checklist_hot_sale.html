@@ -2916,15 +2916,16 @@ function _mergeHsData(localStr, remoteStr) {
 // can't overwrite real data in GitHub before seeing it.
 (async function _ghStartup() {
   let remoteIsEmpty = true;
+  let fetchedRemoteTs = 0;
   try {
     const res = await fetch('/api/load?cb=' + Date.now());
     if(res.ok) {
       const remote = await res.json();
-      const remoteTs = remote._ts || 0;
-      if(remoteTs > 0) {
+      fetchedRemoteTs = remote._ts || 0;
+      if(fetchedRemoteTs > 0) {
         remoteIsEmpty = false;
         const localTs = parseInt(localStorage.getItem('hs_sync_ts') || '0', 10);
-        if(remoteTs > localTs) {
+        if(fetchedRemoteTs > localTs) {
           // Remote is newer — merge hs_data (never overwrite local), apply other keys, reload
           let applied = false;
           HS_SYNC_KEYS.forEach(k => {
@@ -2938,7 +2939,13 @@ function _mergeHsData(localStr, remoteStr) {
               applied = true;
             }
           });
-          if(applied) { _lsOrig.call(localStorage, 'hs_sync_ts', String(remoteTs)); location.reload(); return; }
+          if(applied) {
+            // Use Date.now() (not remoteTs) so after reload localTs > remoteTs
+            // and the poll/startup will push the merged result to remote
+            _lsOrig.call(localStorage, 'hs_sync_ts', String(Date.now()));
+            location.reload();
+            return;
+          }
         }
       }
     }
@@ -2947,8 +2954,10 @@ function _mergeHsData(localStr, remoteStr) {
   // Pull done (or failed) — enable saves now
   _ghReady = true;
 
-  // First-ever sync: if remote was empty and we have local data, push it now
-  if(remoteIsEmpty && localStorage.getItem('hs_data')) {
+  // Push immediately if local has data that remote doesn't have yet
+  // (covers: first-ever sync, post-merge reload, failed previous push)
+  const localTsNow = parseInt(localStorage.getItem('hs_sync_ts') || '0', 10);
+  if(localTsNow > fetchedRemoteTs && localStorage.getItem('hs_data')) {
     _ghPush();
   }
 
