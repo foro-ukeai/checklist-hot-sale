@@ -2888,6 +2888,33 @@ async function _ghPush() {
   } catch(e) { _ghShowStatus('⚠ Sin conexión', '#888'); }
 }
 
+// Merge remote hs_data into local: local real values always win; remote fills gaps only
+function _mergeHsData(localStr, remoteStr) {
+  let local = {}, remote = {};
+  try { local = JSON.parse(localStr || '{}') || {}; } catch(e) {}
+  try { remote = JSON.parse(remoteStr || '{}') || {}; } catch(e) {}
+  for(const d in remote) {
+    if(!local[d]) { local[d] = remote[d]; continue; }
+    for(const m in remote[d]) {
+      if(!local[d][m]) { local[d][m] = remote[d][m]; continue; }
+      for(const c in remote[d][m]) {
+        if(!local[d][m][c]) { local[d][m][c] = remote[d][m][c]; continue; }
+        for(const k in remote[d][m][c]) {
+          if(!local[d][m][c][k]) { local[d][m][c][k] = remote[d][m][c][k]; continue; }
+          const remCell = remote[d][m][c][k];
+          const locCell = local[d][m][c][k];
+          // Only fill gaps — never overwrite existing local values
+          if((locCell.real === undefined || locCell.real === null || locCell.real === '') && remCell.real)
+            locCell.real = remCell.real;
+          if((locCell.obj === undefined || locCell.obj === null || locCell.obj === '') && remCell.obj)
+            locCell.obj = remCell.obj;
+        }
+      }
+    }
+  }
+  return JSON.stringify(local);
+}
+
 // On load: pull → apply if newer → THEN enable saves
 // Critical: saves are disabled until pull completes, so an empty browser
 // can't overwrite real data in GitHub before seeing it.
@@ -2902,9 +2929,19 @@ async function _ghPush() {
         remoteIsEmpty = false;
         const localTs = parseInt(localStorage.getItem('hs_sync_ts') || '0', 10);
         if(remoteTs > localTs) {
-          // Remote is newer — apply and reload
+          // Remote is newer — merge hs_data (never overwrite local), apply other keys, reload
           let applied = false;
-          HS_SYNC_KEYS.forEach(k => { if(remote[k] != null){ _lsOrig.call(localStorage, k, remote[k]); applied = true; } });
+          HS_SYNC_KEYS.forEach(k => {
+            if(remote[k] != null) {
+              if(k === 'hs_data') {
+                const merged = _mergeHsData(localStorage.getItem('hs_data'), remote[k]);
+                _lsOrig.call(localStorage, 'hs_data', merged);
+              } else {
+                _lsOrig.call(localStorage, k, remote[k]);
+              }
+              applied = true;
+            }
+          });
           if(applied) { _lsOrig.call(localStorage, 'hs_sync_ts', String(remoteTs)); location.reload(); return; }
         }
       }
