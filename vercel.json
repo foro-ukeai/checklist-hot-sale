@@ -1,4 +1,4 @@
 {
-  "ignoreCommand": "! git diff HEAD^ HEAD --name-only | grep -qv '^data\\.json$'",
+  "ignoreCommand": "git rev-parse HEAD^1 2>/dev/null && ! git diff HEAD^1 HEAD --name-only | grep -qv '^data\\.json$'",
   "rewrites": [{ "source": "/", "destination": "/checklist_hot_sale.html" }]
 }
