@@ -1655,31 +1655,35 @@ function renderKpiStrip(){
 
 /* ── Ranking ── */
 function renderRanking(){
-  const k=cortesK, ci=getActiveCut();
+  const k=cortesK, ci=getActiveCut(), isCum=cortesScope==='cum';
   const ranked=MARCAS.map((marca,m)=>{
-    const maxDay=Math.min(currentDay,getMarcaDias(m)-1);
-    // Acumular real (mejor corte disponible por día) y objs a través de todos los días
-    let cumReal=0, hR=false, cumObjCi=0, hOCi=false, cumObjClose=0, hOClose=false;
-    for(let d=0;d<=maxDay;d++){
-      // real: mejor valor del día (Cierre si está, sino el más reciente)
-      const {real:rBest}=_getBestVal(d,m,k);
-      const rV=parsNum(rBest); if(!isNaN(rV)){cumReal+=rV;hR=true;}
-      // obj al corte activo de hoy
-      const {obj:oCi}=getCell(d,m,ci,k); const oV=parsNum(oCi); if(!isNaN(oV)){cumObjCi+=oV;hOCi=true;}
-      // obj cierre
-      const {obj:oClose}=getCell(d,m,5,k); const oCV=parsNum(oClose); if(!isNaN(oCV)){cumObjClose+=oCV;hOClose=true;}
+    let rNR=NaN, objCi='', objClose='';
+    if(isCum){
+      const maxDay=Math.min(currentDay,getMarcaDias(m)-1);
+      let cumReal=0,hR=false,cumObjCi=0,hOCi=false,cumObjClose=0,hOClose=false;
+      for(let d=0;d<=maxDay;d++){
+        const {real:rBest}=_getBestVal(d,m,k);
+        const rV=parsNum(rBest); if(!isNaN(rV)){cumReal+=rV;hR=true;}
+        const {obj:oCi}=getCell(d,m,ci,k); const oV=parsNum(oCi); if(!isNaN(oV)){cumObjCi+=oV;hOCi=true;}
+        const {obj:oC}=getCell(d,m,5,k); const oCv=parsNum(oC); if(!isNaN(oCv)){cumObjClose+=oCv;hOClose=true;}
+      }
+      rNR=hR?cumReal:NaN; objCi=hOCi?String(cumObjCi):''; objClose=hOClose?String(cumObjClose):'';
+    } else {
+      let ciR=ci; rNR=parsNum(getCell(currentDay,m,ci,k).real);
+      if(isNaN(rNR)){ for(let c=ci-1;c>=0;c--){ const n=parsNum(getCell(currentDay,m,c,k).real); if(!isNaN(n)){ciR=c;rNR=n;break;} } }
+      objCi=getCell(currentDay,m,ciR,k).obj; objClose=getCell(currentDay,m,5,k).obj;
     }
-    const rNR=hR?cumReal:NaN;
-    const p=(!isNaN(rNR)&&hOCi)?calcPct(String(cumObjCi),String(rNR)):null;
-    const pClose=(!isNaN(rNR)&&hOClose&&cumObjClose>0)?rNR/cumObjClose*100:null;
+    const p=(!isNaN(rNR)&&objCi!=='')?calcPct(objCi,String(rNR)):null;
+    const cO=parsNum(objClose);
+    const pClose=(!isNaN(rNR)&&!isNaN(cO)&&cO>0)?rNR/cO*100:null;
     const dist=isValidDistArr(BRAND_DIST[m])?BRAND_DIST[m]:(_BRAND_DIST_SEED[m]||null);
     const espClose=dist&&dist[ci]?dist[ci][k]:null;
     const gap=(pClose!==null&&espClose!==null)?pClose-espClose:null;
     return {marca,p,gap};
   }).sort((a,b)=>{ if(a.p===null&&b.p===null)return 0; if(a.p===null)return 1; if(b.p===null)return -1; return a.p-b.p; });
 
-  const dayLbl=currentDay>0?`D1→${DIAS[currentDay].replace('Día ','')}`:DIAS[0];
-  document.getElementById('rankTitle').textContent=`Ranking acum · ${dayLbl} · ${CORTES[ci]}`;
+  const scopeLbl=isCum?(currentDay>0?`D1→${DIAS[currentDay].replace('Día ','')}`:DIAS[0]):DIAS[currentDay];
+  document.getElementById('rankTitle').textContent=`Ranking · ${scopeLbl} · ${CORTES[ci]}`;
   document.getElementById('rankList').innerHTML=ranked.map((r,i)=>`
     <div class="v3-rank-row">
       <div class="name">${r.marca}<span class="sub">vs ritmo ${r.gap!==null?fmtGap(r.gap):'—'}</span></div>
