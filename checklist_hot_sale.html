@@ -1849,7 +1849,6 @@ function onSave(inp){
   const prev=getCell(currentDay,+m,+c,+k)[f];
   if(raw !== prev) _undoPush();
   setCell(currentDay,+m,+c,+k,f,raw);
-  inp.value=formatValCompact(raw,+k);
   if(+c===5&&f==='obj') autoFillCortes(currentDay,+m,+k,raw);
   if(currentView==='cortes'){ _savingId=inp.id; renderCortesV3(); _savingId=null; }
 }
