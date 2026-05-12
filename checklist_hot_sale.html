@@ -2354,6 +2354,7 @@ function applyImportedData(){
 
   // OCR mode: read values from editable inputs
   if(_importParsed.mode === 'ocr'){
+    _undoPush(); // punto de restauración — Ctrl+Z deshace la carga
     const {brandIdx, dayVal, multiDay} = _importParsed;
     const applyField = _importField;
     // Re-leer el corte al momento de aplicar (puede haberse cambiado después del OCR)
@@ -2918,7 +2919,9 @@ async function _ghPush() {
     _ghPush();
   }
 
-  // Poll for remote changes every 30 seconds
+  // El poll solo re-empuja si hubo cambios locales sin pushear (hs_sync_ts local > remoto).
+  // NUNCA pisa datos locales con remotos durante una sesión activa —
+  // para sincronizar desde otro dispositivo, recargar la página.
   setInterval(async function _ghPoll() {
     if(!_ghReady) return;
     try {
@@ -2926,13 +2929,9 @@ async function _ghPush() {
       if(!res.ok) return;
       const remote = await res.json();
       const remoteTs = remote._ts || 0;
-      if(remoteTs <= 0) return;
       const localTs = parseInt(localStorage.getItem('hs_sync_ts') || '0', 10);
-      if(remoteTs > localTs) {
-        let applied = false;
-        HS_SYNC_KEYS.forEach(k => { if(remote[k] != null){ _lsOrig.call(localStorage, k, remote[k]); applied = true; } });
-        if(applied) { _lsOrig.call(localStorage, 'hs_sync_ts', String(remoteTs)); location.reload(); }
-      }
+      // Solo empuja si local es más nuevo que remoto (ej: push anterior falló)
+      if(localTs > remoteTs) _ghDebouncedSave();
     } catch(e) { /* silent */ }
   }, 30000);
 })();
