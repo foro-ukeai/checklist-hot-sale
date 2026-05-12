@@ -1783,6 +1783,13 @@ function renderHeatGrid(){
   html+=`<div class="totals">${totLbl}</div>`;
   CORTES.forEach((_,c)=>{ html+=isPct?v3TotPctCell(c,k):v3TotNumCell(c,k); });
 
+  // Flush any typed-but-unsaved values before destroying inputs
+  document.querySelectorAll('#heatGrid input[data-m]').forEach(inp=>{
+    const {m,c,k,f}=inp.dataset;
+    const rv=unformatInput(inp.value);
+    const sv=getCell(currentDay,+m,+c,+k)[f];
+    if(rv!=='' && rv!==sv) setCell(currentDay,+m,+c,+k,f,rv);
+  });
   document.getElementById('heatGrid').innerHTML=html;
 
   // Header title + legend
@@ -1821,24 +1828,6 @@ function renderCortesV3(){
   renderHeatGrid();
 }
 
-/* ── Cell DOM update (no full re-render — preserves other inputs) ── */
-function _refreshCellDOM(m,c,k){
-  const {obj,real}=getCell(currentDay,m,c,k);
-  const p=calcPct(obj,real);
-  const cellEl=document.getElementById(`v3cell_${m}_${c}_${k}`);
-  const pctEl =document.getElementById(`v3a_${m}_${c}_${k}`);
-  if(cellEl) cellEl.className=`v3-cell ${heatBucket(p)}`;
-  if(pctEl){ pctEl.className=`pct fn ${pCls(p)}`; pctEl.textContent=fmtPct(p); }
-  // Update input values only if that input doesn't currently have focus
-  const iObj =document.getElementById(`v3i_${m}_${c}_${k}_obj`);
-  const iReal=document.getElementById(`v3i_${m}_${c}_${k}_real`);
-  if(iObj  && document.activeElement!==iObj)  iObj.value =formatValCompact(obj,k);
-  if(iReal && document.activeElement!==iReal) iReal.value=formatValCompact(real,k);
-  // Also update the brand dot color
-  const dotEl=document.querySelector(`#heatGrid .brand:nth-child(${+m * (CORTES.length+1) + 1}) .dot`);
-  if(dotEl){ const ci=getActiveCut(); const dotP=calcPct(getCell(currentDay,m,ci,k).obj,getCell(currentDay,m,ci,k).real); dotEl.className=`dot ${pCls(dotP)}`; }
-}
-
 /* ── Save / live ── */
 function onSave(inp){
   const {m,c,k,f}=inp.dataset;
@@ -1847,13 +1836,8 @@ function onSave(inp){
   if(raw !== prev) _undoPush();
   setCell(currentDay,+m,+c,+k,f,raw);
   inp.value=formatValCompact(raw,+k);
-  if(+c===5&&f==='obj'){
-    autoFillCortes(currentDay,+m,+k,raw);
-    // Refresh autofilled cells without destroying other inputs
-    for(let ci=0;ci<5;ci++) _refreshCellDOM(+m,ci,+k);
-  }
-  _refreshCellDOM(+m,+c,+k);
-  if(currentView==='cortes'){ renderKpiStrip(); renderRanking(); }
+  if(+c===5&&f==='obj') autoFillCortes(currentDay,+m,+k,raw);
+  if(currentView==='cortes') renderCortesV3();
 }
 function onLive(inp){
   const {m,c,k,f}=inp.dataset, saved=getCell(currentDay,+m,+c,+k);
