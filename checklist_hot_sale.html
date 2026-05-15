@@ -1519,7 +1519,25 @@ function setCell(d,m,c,k,field,val){
   data[d][m][c][k][field]=val;
   try{ localStorage.setItem('hs_data',JSON.stringify(data)); }catch(e){}
 }
-function parsNum(v){ if(v===''||v==null) return NaN; return parseFloat(String(v).replace(/\./g,'').replace(',','.')); }
+function parsNum(v){
+  if(v===''||v==null) return NaN;
+  // Strip $ and spaces, then normalize decimals (dots=thousands, comma=decimal in es-AR)
+  const s=String(v).replace(/[$\s]/g,'').trim();
+  // Check for compact suffix T/B/M/k (e.g. "5,7T", "775M", "77,5B", "150k")
+  const m=s.match(/^(-?)([\d.]*[\d]),([\d]+)([TBMk])$/i) || s.match(/^(-?[\d.]+)([TBMk])$/i);
+  if(m){
+    let num, suf;
+    if(m.length===5){ num=parseFloat((m[1]||'')+m[2]+'.'+m[3]); suf=m[4]; }
+    else { num=parseFloat(s.replace(/\./g,'').replace(',','.')); suf=m[2]; }
+    if(isNaN(num)) return NaN;
+    const u=suf.toUpperCase();
+    if(u==='T') return num*1e12;
+    if(u==='B') return num*1e9;
+    if(u==='M') return num*1e6;
+    if(u==='K') return num*1e3;
+  }
+  return parseFloat(s.replace(/\./g,'').replace(',','.'));
+}
 function calcPct(obj,real){ const o=parsNum(obj),r=parsNum(real); if(isNaN(o)||isNaN(r)||o===0) return null; return r/o*100; }
 function fmtPct(p){ if(p===null||isNaN(p)) return '—'; return p.toFixed(0)+'%'; }
 function fmtGap(g){ if(g===null||isNaN(g)) return '—'; return (g>=0?'+':'')+g.toFixed(1)+'pp'; }
@@ -1529,6 +1547,7 @@ function formatValCompact(val,k){
   const n=parsNum(val); if(isNaN(n)||val===''||val==null) return '';
   if(k!==1) return Math.round(n).toLocaleString('es-AR');
   const a=Math.abs(n);
+  if(a>=1e12) return '$ '+(n/1e12).toFixed(1).replace('.',',')+'T';
   if(a>=1e9) return '$ '+(n/1e9).toFixed(1).replace('.',',')+'B';
   if(a>=1e6) return '$ '+(n/1e6).toFixed(1).replace('.',',')+'M';
   if(a>=1e5) return '$ '+Math.round(n/1e3)+'k';
